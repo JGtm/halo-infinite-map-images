@@ -8,7 +8,7 @@ which remains the place where it is developed; released versions are published h
 
 ## Status
 
-Experimental. The API is not stable before v1.0.0; minor versions may break. Versions are tagged
+Used in production by LevelUp since October 2026. From v1.0.0 the exported API follows semantic versioning: a breaking change means a new major version. Versions are tagged
 `vX.Y.Z` in this repository.
 
 ## What it is
@@ -38,8 +38,8 @@ One package, `himap`, built on [`github.com/JGtm/halo-infinite-files-reader`](ht
 ## Install
 
 ```
-go get github.com/JGtm/halo-infinite-map-images/himap@v0.1.0
-go get github.com/JGtm/halo-infinite-files-reader@v0.1.0
+go get github.com/JGtm/halo-infinite-map-images/himap@v1.0.0
+go get github.com/JGtm/halo-infinite-files-reader@v1.0.0
 ```
 
 Works from any Go module; no `replace` directive is needed. `himap` imports
