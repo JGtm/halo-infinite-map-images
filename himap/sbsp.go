@@ -30,7 +30,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/JGtm/LevelUp/libs/gamefiles/himodule"
+	"github.com/JGtm/halo-infinite-files-reader/himodule"
 )
 
 //go:embed sbsp.xml
