@@ -33,6 +33,8 @@ import (
 	"github.com/JGtm/halo-infinite-files-reader/himodule"
 )
 
+// sbsp.xml est une copie non modifiée de Plugins/sbsp.xml de Gamergotten/Infinite-runtime-tagviewer, sans licence déclarée en amont : voir NOTICE.md.
+//
 //go:embed sbsp.xml
 var sbspPlugin []byte
 

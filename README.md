@@ -3,17 +3,15 @@
 Map-image generator for Halo Infinite: renders the top-down background image of a map from the
 geometry stored in the game's own `.module` archives.
 
-This module was extracted from the LevelUp monorepo ([`github.com/JGtm/LevelUp`](https://github.com/JGtm/LevelUp)),
-which remains the place where it is developed; released versions are published here.
-
 ## Status
 
-Used in production by LevelUp since October 2026. From v1.0.0 the exported API follows semantic versioning: a breaking change means a new major version. Versions are tagged
-`vX.Y.Z` in this repository.
+Used in production by LevelUp since October 2026. From v1.0.0 the exported API follows semantic
+versioning (a breaking change means a new major version). Published as a Go module in its own
+repository; versions are tagged `vX.Y.Z`.
 
 ## What it is
 
-One package, `himap`, built on [`github.com/JGtm/halo-infinite-files-reader`](https://github.com/JGtm/halo-infinite-files-reader):
+One package, `himap`, built on `github.com/JGtm/halo-infinite-files-reader`:
 
 - `CuitCarteNative` renders a native map from its `.module` (placed instances, runtime
   geometry, z-buffer and normals seen from above, water, death-volume boundary) and returns the
@@ -38,12 +36,11 @@ One package, `himap`, built on [`github.com/JGtm/halo-infinite-files-reader`](ht
 ## Install
 
 ```
-go get github.com/JGtm/halo-infinite-map-images/himap@v1.0.0
+go get github.com/JGtm/halo-infinite-map-images@v1.0.0
 go get github.com/JGtm/halo-infinite-files-reader@v1.0.0
 ```
 
-Works from any Go module; no `replace` directive is needed. `himap` imports
-`github.com/JGtm/halo-infinite-files-reader`, so install both.
+Works from any Go module; no `replace` directive is needed. `himap` imports `github.com/JGtm/halo-infinite-files-reader`, so install both.
 
 ## Example
 
@@ -78,24 +75,26 @@ The anchors above are placeholders; real ones come from your own map data.
 
 ## Requirements
 
-Go 1.26.10 (`go.mod`). cgo is required, transitively: `himodule` (from `halo-infinite-files-reader`) links the C++
-`ooz` decoder, so you need `CGO_ENABLED=1` and a C++ compiler (see the
-`halo-infinite-files-reader` README). A local Halo Infinite installation is needed to use the module, not to build it.
+Go 1.26.11 (`go.mod`). cgo is required, transitively: `himodule` of `github.com/JGtm/halo-infinite-files-reader` links the C++
+`ooz` decoder, so you need `CGO_ENABLED=1` and a C++ compiler (see the `github.com/JGtm/halo-infinite-files-reader`
+README). A local Halo Infinite installation is needed to use the module, not to build it.
 
 ## License
 
-AGPL-3.0-only (`LICENSE`). `himap` depends on `halo-infinite-files-reader`, which embeds the GPL-3.0
-`ooz` decoder, so a binary that links this module also reaches `ooz` (GPL-3.0) and is
-GPL-3.0-compatible only; see the `ooz` notice in `halo-infinite-files-reader`. This is a summary,
-not legal advice.
+AGPL-3.0, the repository license (`LICENSE`, `NOTICE` at the repository root). `himap` depends
+on `github.com/JGtm/halo-infinite-files-reader`, which embeds the GPLv3 `ooz` decoder, so a binary that links `himap` is
+GPL-3.0-compatible only; see `ooz/NOTICE.md` of `github.com/JGtm/halo-infinite-files-reader`. This is a summary, not legal advice.
+
+The origin of the data files and the rights they do not carry are in [`NOTICE.md`](NOTICE.md).
 
 ## Contributing
 
-Issues and pull requests on `github.com/JGtm/LevelUp` (the development repository), with the path
-prefix `libs/himap/` in the title. Run `go vet ./... && go test ./...`; the tests that read the
-game sit behind the `gamefiles` build tag and take tens of minutes (`go test -tags gamefiles`).
-The convention of the source is French-language code comments and many French identifiers
-(`Rendu`, `Ancres`, `Cuit...`), so expect them.
+Issues and pull requests on `github.com/JGtm/LevelUp`, with the path prefix `libs/himap/` in the
+title. From the module directory: `go vet ./... && go test ./...`; the tests that read the game
+sit behind the `gamefiles` build tag and take tens of minutes (`go test -tags gamefiles`). The
+repository convention is French-language code comments and many French identifiers (`Rendu`,
+`Ancres`, `Cuit...`), so expect them in the source. Design:
+[ADR 0041](../../docs/adr/0041-go-modules-under-libs.md) (modules under `libs/`).
 
 ## Not affiliated
 
