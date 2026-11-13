@@ -25,7 +25,7 @@ func maillageTroisFaces() *hinavmesh.Maillage {
 }
 
 func TestPlanDesMursExclutLesAretesPartagees(t *testing.T) {
-	plan, err := PlanDesMurs(maillageTroisFaces())
+	plan, err := PlanDesMurs(maillageTroisFaces(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,18 +44,18 @@ func TestPlanDesMursExclutLesAretesPartagees(t *testing.T) {
 
 func TestPlanDesMursEstDeterministe(t *testing.T) {
 	m := maillageTroisFaces()
-	a, _ := PlanDesMurs(m)
-	b, _ := PlanDesMurs(m)
+	a, _ := PlanDesMurs(m, nil)
+	b, _ := PlanDesMurs(m, nil)
 	if !reflect.DeepEqual(a, b) {
 		t.Error("deux appels sur le meme maillage rendent des plans differents")
 	}
 }
 
 func TestPlanDesMursMaillageVide(t *testing.T) {
-	if p, err := PlanDesMurs(nil); err != nil || len(p.Aretes) != 0 || p.Faces != 0 {
+	if p, err := PlanDesMurs(nil, nil); err != nil || len(p.Aretes) != 0 || p.Faces != 0 {
 		t.Errorf("maillage nil : plan %+v, erreur %v", p, err)
 	}
-	if p, err := PlanDesMurs(&hinavmesh.Maillage{}); err != nil || len(p.Aretes) != 0 {
+	if p, err := PlanDesMurs(&hinavmesh.Maillage{}, nil); err != nil || len(p.Aretes) != 0 {
 		t.Errorf("maillage vide : %d aretes, erreur %v", len(p.Aretes), err)
 	}
 }
@@ -66,7 +66,7 @@ func TestPlanDesMursIgnoreUnSommetRepete(t *testing.T) {
 		Sommets: []hinavmesh.Point{{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 1, Y: 1}},
 		Faces:   []hinavmesh.Face{{Sommets: []int32{0, 1, 1, 2}}},
 	}
-	plan, err := PlanDesMurs(m)
+	plan, err := PlanDesMurs(m, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func TestPlanDesMursRefuseUnIndiceHorsBornes(t *testing.T) {
 			Sommets: []hinavmesh.Point{{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 1, Y: 1}},
 			Faces:   []hinavmesh.Face{{Sommets: []int32{0, 1, indice}}},
 		}
-		if _, err := PlanDesMurs(m); err == nil {
+		if _, err := PlanDesMurs(m, nil); err == nil {
 			t.Errorf("indice %d : pas d'erreur", indice)
 		}
 	}
@@ -99,7 +99,7 @@ func TestPlanDesMursExclutUneAretePartageeDansLeMemeSens(t *testing.T) {
 			{Sommets: []int32{0, 1, 3}},
 		},
 	}
-	plan, err := PlanDesMurs(m)
+	plan, err := PlanDesMurs(m, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

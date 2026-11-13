@@ -109,9 +109,10 @@ type Rendu struct {
 	// que la voie haute. On ne retire rien : on regarde d en dessous.
 	zBas []float64
 	nBas [][3]float64
-	// couvertureNavmesh : les cellules que le maillage de navigation couvre. Memorisee au
-	// moment ou la reference est armee, parce que les tampons de reference sont liberes des
-	// que la substitution a decide.
+	// couvertureNavmesh : les cellules que le maillage de navigation couvre. Memorisee quand la
+	// reference est armee (faces des composantes retenues par les ancres), parce que les tampons
+	// de reference sont liberes des que la substitution a decide, puis REMPLACEE a l'etape de
+	// rognage par celle des composantes retenues avec la matiere.
 	couvertureNavmesh []bool
 	// referenceNavmesh : l altitude du sol donnee par le maillage, gardee apres que la voie de
 	// reference a libere ses tampons. NaN hors du maillage.

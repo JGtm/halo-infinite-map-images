@@ -221,6 +221,8 @@ type BilanCuisson struct {
 	// maillage retire, pas des cellules deja vides. Sur une carte Forge il garde sa place
 	// historique, avant les zones et le comblement. Zero sans rognage.
 	CellulesHorsNavmesh int
+	// Navmesh : forme et marge du rognage au maillage, et le sort de ses composantes.
+	Navmesh BilanNavmesh
 	// CellulesSolSuppose : cellules comblees par un APLAT, pas relevees. Publie au sidecar.
 	CellulesSolSuppose int
 	// PlansFrontiere / FrontiereAppliquee / CellulesEffacees : la coquille de mort declaree
@@ -287,6 +289,7 @@ func CuitCarteNative(ctx context.Context, opts OptionsCuisson) (*Rendu, BilanCui
 	// et AVANT la frontiere, pour que celle-ci efface sur l'image finale.
 	s := NewSurfaceReference(opts.Ancres)
 	if opts.Navmesh.Maillage != nil {
+		opts.Navmesh.ancres = opts.Ancres
 		appliqueNavmesh(ctx, r, &b, opts.Navmesh, etapeReference)
 	} else {
 		r.ArmeReference(s)

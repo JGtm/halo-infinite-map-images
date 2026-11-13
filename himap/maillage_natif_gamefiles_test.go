@@ -150,7 +150,7 @@ func TestPlanDesMursBazaar(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := PlanDesMurs(maillage)
+	plan, err := PlanDesMurs(maillage, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

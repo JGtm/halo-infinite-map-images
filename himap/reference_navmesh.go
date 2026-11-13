@@ -23,12 +23,19 @@ import (
 	"github.com/JGtm/halo-infinite-files-reader/hinavmesh"
 )
 
-// MargeNavmesh : de combien on elargit la couverture du maillage avant d effacer autour. Le
-// navmesh se retire le long des parois — 3 m gardent les murs et les rebords qui bordent le sol.
-const MargeNavmesh = 3.0
+// MargeNavmesh : de combien on elargit la couverture du maillage avant d effacer autour, quand
+// `OptionsNavmesh.Marge` est nulle. Le navmesh se retire le long des parois : la marge garde les
+// murs et les rebords qui bordent le sol.
+//
+// CHANGEMENT DE DEFAUT du 2026-11-13 : 0,5 m pour les DEUX chaines (les deux etaient a 3 m).
+// Une marge de 3 m gardait aussi les rochers et les falaises qui bordent l arene sans en etre ;
+// le mode silhouette garde, lui, les trous interieurs que la grande marge rattrapait a sa facon.
+// Un appelant qui veut l ancien comportement passe `Marge: 3`.
+const MargeNavmesh = 0.5
 
 // ArmeReferenceDepuisNavmesh arme la voie de reference en prenant pour sol le maillage de
-// navigation, rasterise dans la grille du rendu.
+// navigation, rasterise dans la grille du rendu. `garde` dit, par face, celles qui servent de sol
+// (voir ComposantesRetenues) : nil garde toutes les faces.
 //
 // Les cellules que le maillage ne couvre pas gardent NaN : elles ne seront jamais substituees,
 // ce qui est la bonne reponse — hors du sol jouable, on n'a rien a dire.
@@ -49,7 +56,7 @@ const MargeNavmesh = 3.0
 //
 // Ce que ca coute, et il faut le savoir : la ou une passerelle survole une cour, c est la
 // passerelle qu on voit et la cour qui disparait. C est le choix normal d une vue de dessus.
-func (r *Rendu) ArmeReferenceDepuisNavmesh(m *hinavmesh.Maillage, niveauHaut bool) int {
+func (r *Rendu) ArmeReferenceDepuisNavmesh(m *hinavmesh.Maillage, garde []bool, niveauHaut bool) int {
 	n := r.NX * r.NY
 	r.ref = make([]float64, n)
 	r.dRef = make([]float64, n)
@@ -61,7 +68,11 @@ func (r *Rendu) ArmeReferenceDepuisNavmesh(m *hinavmesh.Maillage, niveauHaut boo
 		r.zRef[k] = math.NaN()
 	}
 	couvertes := 0
-	for _, t := range m.Triangles() {
+	tris := m.Triangles()
+	if garde != nil {
+		tris = m.TrianglesDe(garde)
+	}
+	for _, t := range tris {
 		a := [3]float64{t[0].X, t[0].Y, t[0].Z}
 		b := [3]float64{t[1].X, t[1].Y, t[1].Z}
 		c := [3]float64{t[2].X, t[2].Y, t[2].Z}
@@ -138,7 +149,20 @@ func (r *Rendu) EffaceHorsNavmesh(marge float64) int {
 	if r.couvertureNavmesh == nil {
 		return 0
 	}
-	couvert := r.dilateCouverture(marge)
+	return r.effaceHorsMasque(r.dilateCouverture(marge))
+}
+
+// EffaceHorsSilhouetteNavmesh est EffaceHorsNavmesh en mode silhouette : le masque dilate de
+// `marge` est complete des trous interieurs (voir remplitTrous), qui gardent leur matiere.
+func (r *Rendu) EffaceHorsSilhouetteNavmesh(marge float64) int {
+	if r.couvertureNavmesh == nil {
+		return 0
+	}
+	return r.effaceHorsMasque(remplitTrous(r.dilateCouverture(marge), r.NX, r.NY))
+}
+
+// effaceHorsMasque efface la matiere des cellules que `couvert` ne retient pas et rend leur nombre.
+func (r *Rendu) effaceHorsMasque(couvert []bool) int {
 	efface := 0
 	for k := range r.z {
 		if couvert[k] {
@@ -280,4 +304,23 @@ func (r *Rendu) CombleDansLeMaillage(marge float64) int {
 		comble++
 	}
 	return comble
+}
+
+// poseCouvertureNavmesh remplace la couverture memorisee par celle des seules faces `garde` du
+// maillage. Le rognage la recalcule apres la selection des composantes qu il fait avec la
+// matiere : celle de la reference, prise avant la projection, ne connaissait que les ancres.
+func (r *Rendu) poseCouvertureNavmesh(m *hinavmesh.Maillage, garde []bool) {
+	r.couvertureNavmesh = couvreTriangles(m.TrianglesDe(garde), r.Min, r.Cell, r.NX, r.NY)
+}
+
+// matiereEn dit si le rendu porte de la matiere (une surface relevee ou un sol suppose) au point
+// (x, y) monde. Hors de la grille : non.
+func (r *Rendu) matiereEn(x, y float64) bool {
+	i := int(math.Floor((x - r.Min[0]) / r.Cell))
+	j := int(math.Floor((y - r.Min[1]) / r.Cell))
+	if i < 0 || i >= r.NX || j < 0 || j >= r.NY {
+		return false
+	}
+	k := j*r.NX + i
+	return !math.IsInf(r.z[k], -1) || (r.solSuppose != nil && r.solSuppose[k])
 }
