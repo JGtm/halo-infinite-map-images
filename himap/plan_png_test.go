@@ -8,6 +8,9 @@ import (
 	"github.com/JGtm/halo-infinite-files-reader/hinavmesh"
 )
 
+// teinteMilieu : la teinte d'une carte a altitude unique, le milieu de la rampe.
+var teinteMilieu = teinteDeRampe(0.5)
+
 // calageDix : un cadre de 10 x 10 pixels d'un metre, dont le coin haut gauche est en (0, 10).
 var calageDix = CalageFond{OrigineX: 0, OrigineY: 10, MetresParPixel: 1, Largeur: 10, Hauteur: 10}
 
@@ -88,12 +91,12 @@ func TestPlanPNGDimensionsEtPixelsSurUnCarre(t *testing.T) {
 		nom     string
 	}{
 		{0, 0, teintePlanPapier, "coin hors silhouette"},
-		{5, 5, teintePlanAplat, "interieur"},
-		{4, 4, teintePlanAplat, "interieur excentre"},
-		{2, 5, teintePlanContour, "bord gauche (x = 2 m)"},
-		{8, 5, teintePlanContour, "bord droit (x = 8 m)"},
-		{5, 2, teintePlanContour, "bord haut (y = 8 m)"},
-		{5, 8, teintePlanContour, "bord bas (y = 2 m)"},
+		{5, 5, teinteMilieu, "interieur"},
+		{4, 4, teinteMilieu, "interieur excentre"},
+		{2, 5, teinteAreteEncre, "bord gauche (x = 2 m)"},
+		{8, 5, teinteAreteEncre, "bord droit (x = 8 m)"},
+		{5, 2, teinteAreteEncre, "bord haut (y = 8 m)"},
+		{5, 8, teinteAreteEncre, "bord bas (y = 2 m)"},
 		{9, 9, teintePlanPapier, "coin bas droit"},
 	}
 	for _, c := range cas {
@@ -115,16 +118,17 @@ func TestPlanPNGRespecteLeSensDuMonde(t *testing.T) {
 	}
 }
 
-// Les trous interieurs sont remplis, comme en mode silhouette ; les aretes du trou sont tracees.
-func TestPlanPNGRemplitLesTrousEtTraceLeursBords(t *testing.T) {
+// Les trous interieurs (rochers, piliers) n'ont pas de face : ils restent du papier, et leurs
+// aretes sont tracees.
+func TestPlanPNGLaisseLesTrousEnPapierEtTraceLeursBords(t *testing.T) {
 	img, err := PlanPNG(anneauMaillage(), nil, calageDix)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := img.RGBAAt(5, 5); got != teintePlanAplat {
-		t.Errorf("centre du trou = %v, attendu l'aplat de la silhouette", got)
+	if got := img.RGBAAt(5, 5); got != teintePlanPapier {
+		t.Errorf("centre du trou = %v, attendu le papier", got)
 	}
-	if got := img.RGBAAt(4, 5); got != teintePlanContour {
+	if got := img.RGBAAt(4, 5); got != teinteAreteEncre {
 		t.Errorf("bord du trou = %v, attendu le trait", got)
 	}
 }

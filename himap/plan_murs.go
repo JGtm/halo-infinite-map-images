@@ -47,14 +47,10 @@ func PlanDesMurs(m *hinavmesh.Maillage, garde []bool) (PlanMurs, error) {
 	if m == nil {
 		return PlanMurs{}, nil
 	}
-	plan := PlanMurs{Sommets: len(m.Sommets), Faces: len(m.Faces)}
-	for f, face := range m.Faces {
-		for _, i := range face.Sommets {
-			if i < 0 || int(i) >= len(m.Sommets) {
-				return PlanMurs{}, fmt.Errorf("face %d : indice de sommet %d hors de [0, %d[", f, i, len(m.Sommets))
-			}
-		}
+	if err := verifieIndicesDeSommets(m); err != nil {
+		return PlanMurs{}, err
 	}
+	plan := PlanMurs{Sommets: len(m.Sommets), Faces: len(m.Faces)}
 	vues := make(map[paireSommets]int)
 	pourChaqueArete(m, garde, func(i, j int32) { vues[cleArete(i, j)]++ })
 	pourChaqueArete(m, garde, func(i, j int32) {
@@ -133,4 +129,18 @@ func coupeAuCadre(a [4]float64, xMin, yMin, xMax, yMax float64) ([4]float64, boo
 		return a, true
 	}
 	return [4]float64{a[0] + t0*dx, a[1] + t0*dy, a[0] + t1*dx, a[1] + t1*dy}, true
+}
+
+// verifieIndicesDeSommets refuse un maillage dont une face cite un sommet qu'il n'a pas : il est
+// incoherent, et tout ce qui le lit par indice (plan, plan image) doit le dire plutot que
+// paniquer.
+func verifieIndicesDeSommets(m *hinavmesh.Maillage) error {
+	for f, face := range m.Faces {
+		for _, i := range face.Sommets {
+			if i < 0 || int(i) >= len(m.Sommets) {
+				return fmt.Errorf("face %d : indice de sommet %d hors de [0, %d[", f, i, len(m.Sommets))
+			}
+		}
+	}
+	return nil
 }

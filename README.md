@@ -137,11 +137,34 @@ behaviour. `OptionsCuissonForge.CombleAuMaillage` fills with the same resolved m
 
 ### Plan image
 
-`PlanPNG(maillage, garde, calage)` draws the exact silhouette of the kept faces (no margin, interior
-holes filled as in silhouette mode) as a flat fill, with the border edges as a dark line, on a light
-paper. `CalageFondDuRendu(r)` gives the frame of a `Rendu`, so the image has the dimensions and the
-calibration of the background, so that the two overlay exactly. The edges are cut at the frame
-(`PlanRogneAuCadre`).
+`PlanPNG(maillage, garde, calage)` draws the height plan of the kept faces. Each face is rasterised
+at its altitude (the mean of its vertices) and the top wins per pixel, as seen from the sky. The tint
+follows the altitude on a continuous six-step ramp, cold and dark at the bottom, warm and light at the
+top (`#60708C #7E8C96 #9EA6A0 #BEBEA0 #DCD6A4 #F6ECB0`), spread between the 2nd and 98th percentiles of
+the kept faces' altitudes; a map flatter than 1 m is drawn at the middle of the ramp. The ramp was
+checked by Machado 2009 simulation (protanopia, deuteranopia, tritanopia): OKLab lightness is monotone,
+and neighbouring steps stay at least 6.7 (x100) apart in each. Do not change it without redoing that
+measurement.
+
+A pixel is darkened (a drop shadow) when the pixel 0.7 m to the north-west (at least 2 px) has a top
+more than 1.2 m above its own: a step reads as a step. Border edges (seen by one kept face) are drawn
+in dark ink, 7 cm thick (at least 1 px); where a level more than 1.5 m higher covers an edge it is
+drawn as a grey dashed line instead (6 px drawn, 6 px skipped), a hidden edge. Holes of the mesh
+(rocks, pillars) have no face and stay light paper, with their edges drawn.
+
+`CalageFondDuRendu(r)` gives the frame of a `Rendu`, so the image has the dimensions and the
+calibration of the background, so that the two overlay exactly. Faces and edges are cut at the frame
+(`PlanRogneAuCadre` does the same for the wall plan).
+
+### Final clip
+
+When `OptionsNavmesh.Rogne` is armed, the clipping mask (kept components, resolved margin, holes
+filled in silhouette mode) is kept and applied a last time at the very end of both chains, after the
+water and every layer painted since: matter, assumed ground and water outside the plan silhouette are
+removed. Water is posed after the mesh clipping and does not know its mask; without this step it
+overflowed the plan view (Deadlock). No selection is redone. `BilanNavmesh.CellulesFinales` and
+`EauRetiree` count what the final step removed, and `BilanCuisson.CellulesEau` is lowered by the
+water removed.
 
 Breaking change from v1.0.x: `OptionsCuissonForge` lost `NavmeshReference`, `RogneAuNavmesh`,
 `MargeNavmeshCarte`, `ToleranceNavmesh` and `MaillageNiveauHaut`, replaced by `Navmesh`.
