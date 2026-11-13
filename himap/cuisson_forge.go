@@ -984,7 +984,7 @@ func mesureEtRogneZonesForge(ctx context.Context, r *Rendu, b *BilanCuisson, opt
 // combler avant reviendrait a remplir des trous qu on s apprete a effacer.
 func combleTrousForge(ctx context.Context, r *Rendu, b *BilanCuisson, opts OptionsCuissonForge) {
 	if opts.CombleAuMaillage {
-		n := r.CombleDansLeMaillage(MargeNavmesh)
+		n := r.CombleDansLeMaillage(opts.Navmesh.margeEffective())
 		b.CellulesSolSuppose += n
 		slog.InfoContext(ctx, "mapfond: sol suppose pose dans l emprise du maillage", "carte", b.Module,
 			"cellules", n)

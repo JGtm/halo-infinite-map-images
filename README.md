@@ -119,7 +119,9 @@ many were kept by anchor and by matter. `BilanCuisson.Navmesh` carries the same 
 Both cooking chains apply the selection twice. The reference surface is armed before the
 geometry is projected, so it only knows the anchors (and the fallback) and reads only the faces of
 the kept components; the clipping runs after the projection and chooses again with the render's
-matter, which can save islets the reference ignored (they are drawn but not substituted).
+matter, which can save islets the reference ignored (they are drawn but have no reference: neither the
+substitution nor the tolerance filter touches them). This second selection runs even without
+`Rogne`, because it sets the mesh coverage that `CombleAuMaillage` fills.
 
 ### Silhouette mode
 
@@ -129,9 +131,9 @@ border of the grid by walking outside the mask: rocks, pillars and water inside 
 drawn, while a gap open to the outside (a canyon, a bay) stays out. `BilanCuisson.Navmesh` records
 the mode and margin that were applied.
 
-The default margin is now 0.5 m on both chains (it was 3 m on the Forge chain): a 3 m margin kept
+The default margin is now 0.5 m on both chains (it was 3 m on both): a 3 m margin kept
 the rocks and cliffs that border an arena without being part of it. Pass `Marge: 3` for the old
-behaviour. `OptionsCuissonForge.CombleAuMaillage` also fills at that default margin.
+behaviour. `OptionsCuissonForge.CombleAuMaillage` fills with the same resolved margin (`Navmesh.Marge`, or the default).
 
 ### Plan image
 
@@ -145,7 +147,8 @@ Breaking change from v1.0.x: `OptionsCuissonForge` lost `NavmeshReference`, `Rog
 `MargeNavmeshCarte`, `ToleranceNavmesh` and `MaillageNiveauHaut`, replaced by `Navmesh`.
 `ArmeReferenceDepuisNavmesh` takes the face mask and the high-level flag as parameters and the package
 variable `NiveauHautNavmesh` is gone. `PlanDesMurs` returns `(PlanMurs, error)` and takes the face mask.
-The default clipping margin went from 3 m to 0.5 m on the Forge chain.
+The default clipping margin went from 3 m to 0.5 m on both chains, and the component selection is now
+applied (the reference reads only the kept components).
 
 ## Requirements
 

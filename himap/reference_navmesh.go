@@ -27,7 +27,7 @@ import (
 // `OptionsNavmesh.Marge` est nulle. Le navmesh se retire le long des parois : la marge garde les
 // murs et les rebords qui bordent le sol.
 //
-// CHANGEMENT DE DEFAUT du 2026-11-13 : 0,5 m pour les DEUX chaines (la chaine Forge etait a 3 m).
+// CHANGEMENT DE DEFAUT du 2026-11-13 : 0,5 m pour les DEUX chaines (les deux etaient a 3 m).
 // Une marge de 3 m gardait aussi les rochers et les falaises qui bordent l arene sans en etre ;
 // le mode silhouette garde, lui, les trous interieurs que la grande marge rattrapait a sa facon.
 // Un appelant qui veut l ancien comportement passe `Marge: 3`.
