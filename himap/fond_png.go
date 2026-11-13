@@ -64,6 +64,11 @@ const (
 	StyleJeu StyleFond = "jeu"
 	// StyleEncre : quasi monochrome, la lisibilite vient des aretes.
 	StyleEncre StyleFond = "encre"
+	// StylePlan : aplat uniforme de la matiere, cerne d un trait sombre a sa silhouette. Aucune
+	// information de relief ni d altitude : le style montre CE QUI EST GARDE et ou la matiere
+	// s arrete, pour juger un rognage (planches, diagnostic). Ce n est pas un habillage de
+	// production : `StyleFondParDefaut` reste inchange.
+	StylePlan StyleFond = "plan"
 )
 
 // StyleFondParDefaut : l'habillage des assets produits.
@@ -81,7 +86,7 @@ const (
 const StyleFondParDefaut = StyleJeu
 
 // StylesFond liste les habillages connus, pour la validation d'une entree utilisateur.
-var StylesFond = []StyleFond{StyleDoux, StylePlat, StyleAltitude, StyleCombine, StyleJeu, StyleEncre}
+var StylesFond = []StyleFond{StyleDoux, StylePlat, StyleAltitude, StyleCombine, StyleJeu, StyleEncre, StylePlan}
 
 // StyleFondValide dit si une chaine designe un habillage connu.
 func StyleFondValide(s StyleFond) bool {
@@ -160,6 +165,9 @@ func (p peintre) pixel(px, j int) (color.RGBA, bool) {
 	}
 	// Le SOL SUPPOSE se peint la ou aucune surface n a ete relevee, et il se peint AUTREMENT :
 	// c est un aplat assume, pas une mesure (cf. Rendu.CombleTrous).
+	if p.style == StylePlan {
+		return p.pixelPlan(px, j)
+	}
 	if p.r.SolSuppose(px, j) {
 		return TeinteSolSuppose(p.style), true
 	}
@@ -211,4 +219,33 @@ func (p peintre) teinte(px, j int, e float64) color.RGBA {
 	}
 	g := uint8(255 * e)
 	return color.RGBA{g, g, g, 255}
+}
+
+// Teintes du style `StylePlan` : un aplat clair, un trait sombre.
+var (
+	teintePlanAplat   = color.RGBA{200, 200, 200, 255}
+	teintePlanContour = color.RGBA{40, 40, 40, 255}
+)
+
+// matierePlan dit si une cellule porte de la matiere pour le style `StylePlan` : une surface
+// relevee, ou un sol suppose. Hors de la grille, non.
+func (p peintre) matierePlan(i, j int) bool {
+	if _, ok := p.r.Eclairement(i, j); ok {
+		return true
+	}
+	return p.r.SolSuppose(i, j)
+}
+
+// pixelPlan peint une cellule en `StylePlan` : rien hors matiere, le trait sombre sur une
+// cellule de matiere qui touche le vide (ou le bord de la grille) par un de ses quatre cotes,
+// l'aplat clair ailleurs. Le trait fait donc une cellule d'epaisseur, a l'interieur de la
+// silhouette.
+func (p peintre) pixelPlan(px, j int) (color.RGBA, bool) {
+	if !p.matierePlan(px, j) {
+		return color.RGBA{}, false
+	}
+	if !p.matierePlan(px-1, j) || !p.matierePlan(px+1, j) || !p.matierePlan(px, j-1) || !p.matierePlan(px, j+1) {
+		return teintePlanContour, true
+	}
+	return teintePlanAplat, true
 }
