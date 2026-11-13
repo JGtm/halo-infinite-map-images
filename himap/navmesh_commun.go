@@ -37,7 +37,7 @@ type OptionsNavmesh struct {
 	Tolerance float64
 	// NiveauHaut : prendre le niveau le PLUS HAUT du maillage comme reference la ou deux
 	// niveaux se superposent, pour que les etages et les passerelles survivent a la
-	// substitution. Voir NiveauHautNavmesh.
+	// substitution. Sert a l armement de la reference (ArmeReferenceDepuisNavmesh).
 	NiveauHaut bool
 }
 
@@ -61,10 +61,7 @@ func appliqueNavmesh(ctx context.Context, r *Rendu, b *BilanCuisson, o OptionsNa
 		if o.Maillage == nil {
 			return
 		}
-		precedent := NiveauHautNavmesh
-		NiveauHautNavmesh = o.NiveauHaut
-		couvertes := r.ArmeReferenceDepuisNavmesh(o.Maillage)
-		NiveauHautNavmesh = precedent
+		couvertes := r.ArmeReferenceDepuisNavmesh(o.Maillage, o.NiveauHaut)
 		slog.InfoContext(ctx, "mapfond: reference prise sur le maillage de navigation",
 			"carte", b.Module, "cellules", couvertes)
 	case etapeRognage:

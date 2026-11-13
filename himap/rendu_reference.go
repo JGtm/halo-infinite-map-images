@@ -184,8 +184,8 @@ func (r *Rendu) TauxCouvertureMesure() float64 {
 }
 
 // SeuilCouvertureCarte : seuil de carte couverte PROPRE A UNE CARTE, en part de matiere, ou
-// zero pour `SeuilCarteCouverte`. Meme forme que `SeuilSubstitution` et `NiveauHautNavmesh` :
-// une variable de paquet posee et restauree autour de la cuisson d'une carte.
+// zero pour `SeuilCarteCouverte`. Meme forme que `SeuilSubstitution` : une variable de paquet
+// posee et restauree autour de la cuisson d'une carte.
 //
 // POURQUOI UN REGLAGE ICI, alors que l'en-tete de ce fichier ecrit « AUCUN REGLAGE PAR CARTE ».
 // Cette phrase reste vraie de ce qu'elle visait : la sonde du 2026-08-13 a refute un seuil PAR

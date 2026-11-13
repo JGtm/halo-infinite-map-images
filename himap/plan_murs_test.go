@@ -25,7 +25,10 @@ func maillageTroisFaces() *hinavmesh.Maillage {
 }
 
 func TestPlanDesMursExclutLesAretesPartagees(t *testing.T) {
-	plan := PlanDesMurs(maillageTroisFaces())
+	plan, err := PlanDesMurs(maillageTroisFaces())
+	if err != nil {
+		t.Fatal(err)
+	}
 	attendu := [][4]float64{
 		{0, 0, 1, 0}, {1, 1, 0, 0},
 		{1, 0, 2, 0}, {2, 1, 1, 1},
@@ -41,17 +44,71 @@ func TestPlanDesMursExclutLesAretesPartagees(t *testing.T) {
 
 func TestPlanDesMursEstDeterministe(t *testing.T) {
 	m := maillageTroisFaces()
-	a, b := PlanDesMurs(m), PlanDesMurs(m)
+	a, _ := PlanDesMurs(m)
+	b, _ := PlanDesMurs(m)
 	if !reflect.DeepEqual(a, b) {
 		t.Error("deux appels sur le meme maillage rendent des plans differents")
 	}
 }
 
 func TestPlanDesMursMaillageVide(t *testing.T) {
-	if p := PlanDesMurs(nil); len(p.Aretes) != 0 || p.Faces != 0 {
-		t.Errorf("maillage nil : plan non vide %+v", p)
+	if p, err := PlanDesMurs(nil); err != nil || len(p.Aretes) != 0 || p.Faces != 0 {
+		t.Errorf("maillage nil : plan %+v, erreur %v", p, err)
 	}
-	if p := PlanDesMurs(&hinavmesh.Maillage{}); len(p.Aretes) != 0 {
-		t.Errorf("maillage vide : %d aretes", len(p.Aretes))
+	if p, err := PlanDesMurs(&hinavmesh.Maillage{}); err != nil || len(p.Aretes) != 0 {
+		t.Errorf("maillage vide : %d aretes, erreur %v", len(p.Aretes), err)
+	}
+}
+
+// Un sommet repete donne une arete d'un point : elle est ignoree, les autres comptent.
+func TestPlanDesMursIgnoreUnSommetRepete(t *testing.T) {
+	m := &hinavmesh.Maillage{
+		Sommets: []hinavmesh.Point{{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 1, Y: 1}},
+		Faces:   []hinavmesh.Face{{Sommets: []int32{0, 1, 1, 2}}},
+	}
+	plan, err := PlanDesMurs(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	attendu := [][4]float64{{0, 0, 1, 0}, {1, 0, 1, 1}, {1, 1, 0, 0}}
+	if !reflect.DeepEqual(plan.Aretes, attendu) {
+		t.Errorf("aretes = %v, attendu %v", plan.Aretes, attendu)
+	}
+}
+
+// Un indice negatif ou hors bornes est une erreur, jamais une panique.
+func TestPlanDesMursRefuseUnIndiceHorsBornes(t *testing.T) {
+	for _, indice := range []int32{3, 99, -1} {
+		m := &hinavmesh.Maillage{
+			Sommets: []hinavmesh.Point{{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 1, Y: 1}},
+			Faces:   []hinavmesh.Face{{Sommets: []int32{0, 1, indice}}},
+		}
+		if _, err := PlanDesMurs(m); err == nil {
+			t.Errorf("indice %d : pas d'erreur", indice)
+		}
+	}
+}
+
+// Deux faces qui parcourent la meme arete DANS LE MEME SENS la voient deux fois : elle est un
+// passage (maillage mal oriente, mais deux faces la portent) et n'est pas un bord.
+func TestPlanDesMursExclutUneAretePartageeDansLeMemeSens(t *testing.T) {
+	m := &hinavmesh.Maillage{
+		Sommets: []hinavmesh.Point{{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 1, Y: 1}, {X: 0, Y: 1}},
+		Faces: []hinavmesh.Face{
+			{Sommets: []int32{0, 1, 2}},
+			{Sommets: []int32{0, 1, 3}},
+		},
+	}
+	plan, err := PlanDesMurs(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Aretes) != 4 {
+		t.Fatalf("%d aretes de bord, attendu 4 (l'arete 0-1 est vue deux fois)", len(plan.Aretes))
+	}
+	for _, a := range plan.Aretes {
+		if a == [4]float64{0, 0, 1, 0} {
+			t.Errorf("l'arete partagee 0-1 figure dans le plan : %v", plan.Aretes)
+		}
 	}
 }

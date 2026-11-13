@@ -67,7 +67,10 @@ func ExampleChargeMaillageNatif() {
 	_ = himap.FondPNG(r, r.NX, r.NY, nil, himap.StylePlan)
 
 	// The mesh edges seen by one face only are the walls of the floor plan, in world metres.
-	plan := himap.PlanDesMurs(maillage)
+	plan, err := himap.PlanDesMurs(maillage)
+	if err != nil {
+		log.Fatal(err)
+	}
 	for _, a := range plan.Aretes {
 		_ = a // {x1, y1, x2, y2}
 	}

@@ -215,8 +215,11 @@ type BilanCuisson struct {
 	CellulesHorsZones int
 	// CellulesHorsBoite : matiere effacee par le bornage MANUEL (BoiteUtile).
 	CellulesHorsBoite int
-	// CellulesHorsNavmesh : matiere effacee parce qu elle tombe hors du maillage de navigation
-	// dilate (OptionsNavmesh.Rogne). Zero sans rognage.
+	// CellulesHorsNavmesh : cellules de matiere que le rognage au maillage de navigation
+	// (OptionsNavmesh.Rogne) a retirees de l image. Sur une carte native le rognage passe apres la
+	// frontiere de mort, les zones et la boite : c est la matiere de l image finale que le
+	// maillage retire, pas des cellules deja vides. Sur une carte Forge il garde sa place
+	// historique, avant les zones et le comblement. Zero sans rognage.
 	CellulesHorsNavmesh int
 	// CellulesSolSuppose : cellules comblees par un APLAT, pas relevees. Publie au sidecar.
 	CellulesSolSuppose int
@@ -300,10 +303,13 @@ func CuitCarteNative(ctx context.Context, opts OptionsCuisson) (*Rendu, BilanCui
 	} else {
 		b.TauxCouverture, b.CellulesSubstituees, b.CarteCouverte = r.AppliqueReference(s, opts.SubstitutionSansPortee)
 	}
-	appliqueNavmesh(ctx, r, &b, opts.Navmesh, etapeRognage)
 	appliqueFrontiere(ctx, r, &b, opts, zJeu)
 	mesureEtRogneZones(ctx, r, &b, opts)
 	borneALaBoite(ctx, r, &b, opts.BoiteUtile)
+	// Le rognage au maillage passe apres tous les autres effacements de forme (frontiere, zones,
+	// boite) : son compteur est alors la matiere de l image finale que le maillage retire. Il
+	// precede l elagage des composantes, qui doit voir l effacement definitif.
+	appliqueNavmesh(ctx, r, &b, opts.Navmesh, etapeRognage)
 	if opts.RogneAuxComposantesAncrees {
 		n, gardees, total := r.GardeComposantesAncrees(opts.Ancres)
 		slog.InfoContext(ctx, "mapfond: composantes sans ancre effacees", "carte", b.Module,

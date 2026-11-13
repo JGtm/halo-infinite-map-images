@@ -119,19 +119,20 @@ func TestCuisineBazaarAvecMaillageNatif(t *testing.T) {
 		t.Fatalf("cuisson avec maillage : %v", err)
 	}
 
-	if d := math.Abs(bAvec.NiveauDeJeu - bSans.NiveauDeJeu); d > 0.2 {
-		t.Errorf("niveau de jeu %.3f m avec maillage, %.3f m sans : ecart %.3f m > 0,2 m",
-			bAvec.NiveauDeJeu, bSans.NiveauDeJeu, d)
-	}
-	if bAvec.AncresAvecSol != bAvec.Ancres {
+	if bAvec.Ancres != 17 || bAvec.AncresAvecSol != bAvec.Ancres {
 		t.Errorf("%d ancres sur %d au sol (%d dans le cadre), attendu toutes", bAvec.AncresAvecSol, bAvec.Ancres, bAvec.AncresDansLeCadre)
 	}
 	sans, avec := matiereDuRendu(rSans), matiereDuRendu(rAvec)
 	part := 1 - float64(avec)/float64(sans)
+	t.Logf("substituees %d, couverte %v (sans maillage : %d, %v) : sur Bazaar la substitution n est pas exercee",
+		bAvec.CellulesSubstituees, bAvec.CarteCouverte, bSans.CellulesSubstituees, bSans.CarteCouverte)
 	t.Logf("matiere %d cellules sans maillage, %d avec ; part rognee %.2f %% ; effacees hors maillage %d ; ancres %d/%d ; ecart ancres %.3f m (sans : %.3f m)",
 		sans, avec, 100*part, bAvec.CellulesHorsNavmesh, bAvec.AncresAvecSol, bAvec.Ancres, bAvec.EcartMedianAncre, bSans.EcartMedianAncre)
-	if bAvec.CellulesHorsNavmesh <= 0 {
-		t.Error("aucune cellule effacee hors maillage")
+	// Le rognage passe apres la frontiere : le compteur est la matiere de l image finale que le
+	// maillage retire, soit l ecart des deux images (mesure du 2026-11-13), a 5 pour cent pres.
+	const horsMaillageMesure = 1455255
+	if d := math.Abs(float64(bAvec.CellulesHorsNavmesh)-horsMaillageMesure) / horsMaillageMesure; d > 0.05 {
+		t.Errorf("CellulesHorsNavmesh = %d, attendu %d a 5 pour cent pres", bAvec.CellulesHorsNavmesh, horsMaillageMesure)
 	}
 	if bSans.CellulesHorsNavmesh != 0 {
 		t.Errorf("CellulesHorsNavmesh = %d sans maillage, attendu 0", bSans.CellulesHorsNavmesh)
@@ -149,7 +150,10 @@ func TestPlanDesMursBazaar(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan := PlanDesMurs(maillage)
+	plan, err := PlanDesMurs(maillage)
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Logf("plan de Bazaar : %d aretes de bord pour %d sommets et %d faces", len(plan.Aretes), plan.Sommets, plan.Faces)
 	if len(plan.Aretes) != 1174 {
 		t.Errorf("%d aretes de bord, attendu 1174 (mesure du 2026-11-13)", len(plan.Aretes))

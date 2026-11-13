@@ -9,7 +9,7 @@ import (
 
 // TestArmeReferenceDepuisNavmeshAppeleDuCommunSeul : la reference prise sur le maillage ne
 // s'arme qu'a un endroit, `appliqueNavmesh`. Deux chaines qui l'armaient chacune de leur cote
-// divergeaient (bascule `NiveauHautNavmesh` oubliee, journal different) ; ce test relit les
+// divergeaient (niveau haut oublie, journal different) ; ce test relit les
 // sources hors tests et refuse tout appel ailleurs que dans navmesh_commun.go (l'appelant) et
 // reference_navmesh.go (la definition).
 func TestArmeReferenceDepuisNavmeshAppeleDuCommunSeul(t *testing.T) {

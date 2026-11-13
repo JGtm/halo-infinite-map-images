@@ -19,8 +19,12 @@ import (
 )
 
 // ErrSansMaillage : la carte n'a pas de maillage de navigation dans son module `any`
-// (`sgh_interlock` et `academy_tutorial`). Ce n'est pas un echec de cuisson : l'appelant cuit
+// (`sgh_interlock` et `academy_tutorial`). Ce n est pas un echec de cuisson : l appelant cuit
 // sans maillage et consigne la degradation.
+//
+// Elle ne dit rien des candidates illisibles : quand `BilanMaillage.Illisibles` est non nul, le
+// maillage rendu est le plus gros des ressources lisibles, qui peut etre un secondaire si la
+// vraie principale n a pas pu etre extraite. L appelant consulte ce compte.
 var ErrSansMaillage = errors.New("himap: aucun maillage de navigation dans le module de la carte")
 
 // BilanMaillage chiffre le choix de la ressource de maillage d'une carte native.
@@ -32,14 +36,16 @@ type BilanMaillage struct {
 	// Secondaires : ressources de maillage en plus de la principale (chasm, va_launchsite,
 	// ridgeline en portent). Elles ne sont pas decodees.
 	Secondaires int
-	// Illisibles : candidates que le lecteur n'a pas pu extraire.
+	// Illisibles : candidates que le lecteur n a pas pu extraire. Non nul, le maillage decode est
+	// peut-etre un secondaire (la vraie principale a pu etre l une des illisibles) : a consulter
+	// avant de se fier au maillage.
 	Illisibles int
 }
 
 // ChargeMaillageNatif rend le maillage de navigation de la carte native `module` (nom de son
 // dossier, ex. `ctf_bazaar`), lu dans `<racineDeploy>/any/levels/multi/<module>/<module>-rtx-new.module`.
 //
-// `ErrSansMaillage` (testable par errors.Is) quand la carte n'en a pas. Toute autre erreur est
+// `ErrSansMaillage` (testable par errors.Is) quand la carte n'en a pas.  Toute autre erreur est
 // une lecture ou un decodage qui a echoue : le module n'a pas pu etre ouvert, aucune
 // ressource candidate n'a ete lisible, ou la principale n'est pas un maillage decodable.
 func ChargeMaillageNatif(ctx context.Context, racineDeploy, module string) (*hinavmesh.Maillage, BilanMaillage, error) {
@@ -58,6 +64,11 @@ func ChargeMaillageNatif(ctx context.Context, racineDeploy, module string) (*hin
 	if len(ressources) == 0 {
 		slog.InfoContext(ctx, "carte native sans maillage de navigation", "module", module, "illisibles", illisibles)
 		return nil, bilan, ErrSansMaillage
+	}
+	if illisibles > 0 {
+		// Les candidates sont triees par taille ; une illisible peut etre la vraie principale.
+		slog.WarnContext(ctx, fmt.Sprintf("maillage principal possiblement illisible : %d candidates non extraites", illisibles),
+			"module", module)
 	}
 	principale := ressources[0]
 	octets, err := m.Extract(principale)
