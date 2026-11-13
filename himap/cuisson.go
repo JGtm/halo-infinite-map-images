@@ -75,6 +75,10 @@ type OptionsCuisson struct {
 	CheminModule string
 	// Ancres sont les positions monde des objectifs de la carte.
 	Ancres [][3]float64
+	// Navmesh : le maillage de navigation de la carte (voir ChargeMaillageNatif) et ce qu on en
+	// fait. Applique a la cuisson avant les rognages ci-dessous : la reference vient du maillage
+	// au lieu des ancres, puis la matiere hors maillage est effacee si `Navmesh.Rogne`.
+	Navmesh OptionsNavmesh
 	// SansFrontiere neutralise la coquille de mort. TEMOIN de comparaison uniquement :
 	// jamais une option de production.
 	SansFrontiere bool
@@ -211,6 +215,9 @@ type BilanCuisson struct {
 	CellulesHorsZones int
 	// CellulesHorsBoite : matiere effacee par le bornage MANUEL (BoiteUtile).
 	CellulesHorsBoite int
+	// CellulesHorsNavmesh : matiere effacee parce qu elle tombe hors du maillage de navigation
+	// dilate (OptionsNavmesh.Rogne). Zero sans rognage.
+	CellulesHorsNavmesh int
 	// CellulesSolSuppose : cellules comblees par un APLAT, pas relevees. Publie au sidecar.
 	CellulesSolSuppose int
 	// PlansFrontiere / FrontiereAppliquee / CellulesEffacees : la coquille de mort declaree
@@ -276,7 +283,11 @@ func CuitCarteNative(ctx context.Context, opts OptionsCuisson) (*Rendu, BilanCui
 	// La voie de reference contre les TOITS : armee avant de projeter, decidee juste apres —
 	// et AVANT la frontiere, pour que celle-ci efface sur l'image finale.
 	s := NewSurfaceReference(opts.Ancres)
-	r.ArmeReference(s)
+	if opts.Navmesh.Maillage != nil {
+		appliqueNavmesh(ctx, r, &b, opts.Navmesh, etapeReference)
+	} else {
+		r.ArmeReference(s)
+	}
 
 	if err := PeupleDepuisModule(ctx, r, &b, opts); err != nil {
 		return nil, b, err
@@ -289,6 +300,7 @@ func CuitCarteNative(ctx context.Context, opts OptionsCuisson) (*Rendu, BilanCui
 	} else {
 		b.TauxCouverture, b.CellulesSubstituees, b.CarteCouverte = r.AppliqueReference(s, opts.SubstitutionSansPortee)
 	}
+	appliqueNavmesh(ctx, r, &b, opts.Navmesh, etapeRognage)
 	appliqueFrontiere(ctx, r, &b, opts, zJeu)
 	mesureEtRogneZones(ctx, r, &b, opts)
 	borneALaBoite(ctx, r, &b, opts.BoiteUtile)

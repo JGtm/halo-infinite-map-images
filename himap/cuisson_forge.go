@@ -41,7 +41,6 @@ import (
 	"strings"
 
 	"github.com/JGtm/halo-infinite-files-reader/himodule"
-	"github.com/JGtm/halo-infinite-files-reader/hinavmesh"
 	"github.com/JGtm/halo-infinite-files-reader/mapvar"
 )
 
@@ -111,27 +110,9 @@ type OptionsCuissonForge struct {
 	// Mesure sur Isolation : les 32 exemplaires du type qui peint 82,7 pour cent de l image sont
 	// poses entre Z 136,0 et 160,6 quand le sol joue est a Z 117 — de 19 a 44 m au-dessus.
 	PlafondObjets float64
-	// NavmeshReference, s il est fourni, sert de SURFACE DE REFERENCE a la place de
-	// l interpolation des ancres. Le rendu reste celui de la geometrie ordinaire — on ne
-	// change que ce a quoi on compare les surfaces. C est ce qui rend a une carte a ciel
-	// ferme ses structures, la ou le fond tire du seul navmesh ne montrait que le sol nu.
-	NavmeshReference *hinavmesh.Maillage
-	// RogneAuNavmesh efface la matiere hors du maillage de navigation, dilate de MargeNavmesh.
-	RogneAuNavmesh bool
-	// MargeNavmeshCarte : dilatation du masque de rognage au maillage, en metres. ZERO =
-	// `MargeNavmesh` (3 m).
-	//
-	// La marge existe pour garder les MURS qui bordent le sol : le maillage se retire des parois,
-	// et rogner au ras rendrait une carte sans ses cloisons. Mais 3 m gardent aussi ce qui borde
-	// le sol sans en etre — un rocher pose contre l arene, une falaise. La resserrer est le seul
-	// levier qui distingue ces masses du terrain, apres que trois autres ont ete refutes sur
-	// Shogun le 2026-08-30 : la tranche de hauteur (0 ancre sur 13), l exclusion par type
-	// (0 ancre sur 13 — les gros types SONT le sol) et l altitude de pose (le point de pose d une
-	// piece Forge n est pas la ou sa surface se dessine).
-	MargeNavmeshCarte float64
-	// ToleranceNavmesh vide les cellules dont la surface retenue s ecarte de plus de N metres
-	// du sol donne par le maillage. Zero = ne rien vider.
-	ToleranceNavmesh float64
+	// Navmesh porte le maillage de navigation et ce qu on en fait : surface de reference,
+	// rognage, tolerance (voir OptionsNavmesh). Sans maillage rien ne s applique.
+	Navmesh OptionsNavmesh
 	// SolVuDuDessous : retenir la surface la plus BASSE au-dessus du sol joue au lieu de la plus
 	// haute. Voir Rendu.ArmeSurfaceBasse — la reponse aux cartes a ciel ferme.
 	SolVuDuDessous bool
@@ -178,7 +159,7 @@ type OptionsCuissonForge struct {
 	// rien a fournir, rien a telecharger. La mesure, elle, est INCONDITIONNELLE : elle seule
 	// dit si le rognage est defendable sur cette carte.
 	//
-	// A ARBITRER CONTRE `RogneAuNavmesh`, qui rogne au maillage de navigation. Les deux
+	// A ARBITRER CONTRE `Navmesh.Rogne`, qui rogne au maillage de navigation. Les deux
 	// disent « ou l on joue » par deux sources independantes ; ils se cumulent sans se
 	// contredire, mais une carte n a en general besoin que d un des deux.
 	RogneAuxZones bool
@@ -226,10 +207,6 @@ type OptionsCuissonForge struct {
 	// objectifs sont alignes (Outlook : 31 x 3 m), une marge serree couperait au contraire
 	// l arene. Le chiffre se choisit apres avoir regarde.
 	MargeAncres float64
-	// MaillageNiveauHaut : prendre le niveau le PLUS HAUT du maillage comme reference la ou deux
-	// niveaux se superposent, pour que les etages et les passerelles survivent a la substitution.
-	// Voir NiveauHautNavmesh.
-	MaillageNiveauHaut bool
 	// SansSubstitution laisse la surface HAUTE telle qu elle a ete dessinee, au lieu de la
 	// remplacer par celle qui est la plus proche de la reference.
 	//
@@ -293,13 +270,8 @@ func CuitCarteForge(ctx context.Context, opts OptionsCuissonForge) (*Rendu, Bila
 	SeuilCouvertureCarte = opts.SeuilCouverture
 	defer func() { SeuilCouvertureCarte = precedentCouverture }()
 	s := NewSurfaceReference(opts.Ancres)
-	if opts.NavmeshReference != nil {
-		precedent := NiveauHautNavmesh
-		NiveauHautNavmesh = opts.MaillageNiveauHaut
-		couvertes := r.ArmeReferenceDepuisNavmesh(opts.NavmeshReference)
-		NiveauHautNavmesh = precedent
-		slog.InfoContext(ctx, "mapfond: reference prise sur le maillage de navigation",
-			"carte", opts.Cle, "cellules", couvertes)
+	if opts.Navmesh.Maillage != nil {
+		appliqueNavmesh(ctx, r, &b, opts.Navmesh, etapeReference)
 	} else {
 		r.ArmeReference(s)
 	}
@@ -328,7 +300,7 @@ func CuitCarteForge(ctx context.Context, opts OptionsCuissonForge) (*Rendu, Bila
 		slog.InfoContext(ctx, "mapfond: sol vu du dessous", "carte", opts.Cle, "pixels", n)
 	}
 	appliqueSubstitutionForge(ctx, r, &b, s, opts)
-	rogneAuNavmeshForge(ctx, r, opts)
+	appliqueNavmesh(ctx, r, &b, opts.Navmesh, etapeRognage)
 	mesureEtRogneZonesForge(ctx, r, &b, opts)
 	combleTrousForge(ctx, r, &b, opts)
 	rogneAltitudesEtPositionsForge(ctx, r, opts)
@@ -383,23 +355,6 @@ func appliqueSubstitutionForge(ctx context.Context, r *Rendu, b *BilanCuisson,
 		b.CarteCouverte = b.TauxCouverture > SeuilCouvertureEffectif()
 	default:
 		b.TauxCouverture, b.CellulesSubstituees, b.CarteCouverte = r.AppliqueReference(s, opts.SubstitutionSansPortee)
-	}
-}
-
-// rogneAuNavmeshForge applique les deux rognages qui prennent le maillage de navigation pour
-// juge : hors maillage, puis loin du sol qu'il donne. Extrait de CuitCarteForge, a l'identique.
-func rogneAuNavmeshForge(ctx context.Context, r *Rendu, opts OptionsCuissonForge) {
-	if opts.RogneAuNavmesh && opts.NavmeshReference != nil {
-		marge := MargeNavmesh
-		if opts.MargeNavmeshCarte > 0 {
-			marge = opts.MargeNavmeshCarte
-		}
-		n := r.EffaceHorsNavmesh(marge)
-		slog.InfoContext(ctx, "mapfond: matiere effacee hors du maillage de navigation", "carte", opts.Cle, "cellules", n, "marge", marge)
-	}
-	if opts.ToleranceNavmesh > 0 {
-		n := r.EffaceLoinDuNavmesh(opts.ToleranceNavmesh)
-		slog.InfoContext(ctx, "mapfond: surfaces loin du sol vidées", "carte", opts.Cle, "tolerance", opts.ToleranceNavmesh, "cellules", n)
 	}
 }
 
