@@ -73,6 +73,30 @@ log.Printf("origin (%.1f, %.1f), %.4f m/px", x0, y0, mpp)
 
 The anchors above are placeholders; real ones come from your own map data.
 
+## Native maps and the navigation mesh
+
+Every native map except `sgh_interlock` and `academy_tutorial` carries the navigation mesh agents
+walk on, baked into a resource of its `any` module (the `pc` module holds the render geometry).
+`ChargeMaillageNatif(ctx, deploy, "ctf_bazaar")` returns it as a `*hinavmesh.Maillage` plus a
+`BilanMaillage` (which resource was decoded, how many secondary meshes were ignored, how many
+candidates could not be read); `ErrSansMaillage` means the map has none, and the cooking then
+runs without one.
+
+Both cooking chains take the mesh through one `OptionsNavmesh` (`OptionsCuisson.Navmesh` for
+native maps, `OptionsCuissonForge.Navmesh` for Forge maps, whose mesh comes from the variant's
+`navmesh.blob` via `hinavmesh.Decode`): the mesh replaces the anchor interpolation as the
+reference surface, `Rogne` erases the matter farther than `Marge` metres (zero means 3 m) from
+it, `Tolerance` empties cells whose surface is farther than that from the mesh floor, and
+`NiveauHaut` keeps the highest level where two overlap. `BilanCuisson.CellulesHorsNavmesh`
+counts what the clipping erased.
+
+`PlanDesMurs(maillage)` returns the floor plan as world-metre segments: the mesh edges that only
+one face carries, in a stable order. `StylePlan` renders a `Rendu` as a flat fill outlined at its
+silhouette, to judge a clipping; it is a diagnostic look, not the default one.
+
+Breaking change from v1.0.x: `OptionsCuissonForge` lost `NavmeshReference`, `RogneAuNavmesh`,
+`MargeNavmeshCarte`, `ToleranceNavmesh` and `MaillageNiveauHaut`, replaced by `Navmesh`.
+
 ## Requirements
 
 Go 1.26.11 (`go.mod`). cgo is required, transitively: `himodule` of `github.com/JGtm/halo-infinite-files-reader` links the C++
