@@ -64,6 +64,10 @@ type BilanNavmesh struct {
 	AireGardee, AireEcartee float64
 	ParAncre, ParMatiere    int
 	Repli                   bool
+	// CellulesFinales et EauRetiree : cellules de matiere (surface relevee ou sol suppose), puis
+	// cellules d'eau visibles, que l'etape finale a retirees hors de la silhouette. Nuls tant
+	// qu'aucun rognage n'a pose de silhouette.
+	CellulesFinales, EauRetiree int
 }
 
 // note recopie le resultat d une selection de composantes dans le bilan.
@@ -82,6 +86,9 @@ const (
 	etapeReference etapeNavmesh = iota
 	// etapeRognage : APRES la substitution, sur l'image qu'elle a rendue.
 	etapeRognage
+	// etapeFinale : EN TOUT DERNIER, apres l'eau et tout autre calque peint : recoupe le rendu a
+	// la silhouette du rognage (voir recoupeALaSilhouette).
+	etapeFinale
 )
 
 // appliqueNavmesh applique a un rendu la part de `o` qui revient a `etape`. Sans maillage
@@ -103,6 +110,8 @@ func appliqueNavmesh(ctx context.Context, r *Rendu, b *BilanCuisson, o OptionsNa
 		couvertes := r.ArmeReferenceDepuisNavmesh(o.Maillage, res.Garde, o.NiveauHaut)
 		slog.InfoContext(ctx, "mapfond: reference prise sur le maillage de navigation",
 			"carte", b.Module, "cellules", couvertes, "composantes", fmt.Sprintf("%d gardees, %d ecartees", res.Gardees, res.Ecartees))
+	case etapeFinale:
+		recoupeALaSilhouette(ctx, r, b)
 	case etapeRognage:
 		if o.Maillage != nil {
 			rogneAuMaillage(ctx, r, b, o)
@@ -143,15 +152,28 @@ func rogneAuMaillage(ctx context.Context, r *Rendu, b *BilanCuisson, o OptionsNa
 			"carte", b.Module, "mode", string(o.Mode))
 	}
 	b.Navmesh.Mode, b.Navmesh.Marge = mode, marge
-	var n int
-	if mode == ModeSilhouette {
-		n = r.EffaceHorsSilhouetteNavmesh(marge)
-	} else {
-		n = r.EffaceHorsNavmesh(marge)
-	}
+	r.masqueFinal = r.masqueDeRognage(mode, marge)
+	n := r.effaceHorsMasque(r.masqueFinal)
 	b.CellulesHorsNavmesh = n
 	slog.InfoContext(ctx, "mapfond: matiere effacee hors du maillage de navigation",
 		"carte", b.Module, "cellules", n, "mode", string(mode), "marge", marge,
 		"composantes", fmt.Sprintf("%d gardees (%.0f m2, %d par ancre, %d par matiere, repli %t), %d ecartees (%.0f m2)",
 			res.Gardees, res.AireGardee, res.ParAncre, res.ParMatiere, res.Repli, res.Ecartees, res.AireEcartee))
+}
+
+// recoupeALaSilhouette est l'etape finale des deux chaines : le rendu est coupe a la silhouette
+// du plan, celle que le rognage a posee (composantes gardees, marge resolue, trous interieurs
+// remplis en mode silhouette), apres l'eau et tout calque peint depuis. L'eau se pose apres le
+// rognage et ne connait pas le masque : sans cette etape elle depasse de la vue plan. Sans
+// rognage au maillage (`Rogne` desarme), il n'y a pas de silhouette et rien n'est coupe. Aucune
+// selection n'est refaite : c'est le masque du rognage, tel quel.
+func recoupeALaSilhouette(ctx context.Context, r *Rendu, b *BilanCuisson) {
+	if r.masqueFinal == nil {
+		return
+	}
+	matiere, eau := r.effaceHorsMasqueFinal()
+	b.Navmesh.CellulesFinales, b.Navmesh.EauRetiree = matiere, eau
+	b.CellulesEau -= eau
+	slog.InfoContext(ctx, "mapfond: rendu recoupe a la silhouette du plan",
+		"carte", b.Module, "matiere", matiere, "eau", eau)
 }

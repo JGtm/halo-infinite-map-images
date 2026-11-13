@@ -114,6 +114,10 @@ type Rendu struct {
 	// de reference sont liberes des que la substitution a decide, puis REMPLACEE a l'etape de
 	// rognage par celle des composantes retenues avec la matiere.
 	couvertureNavmesh []bool
+	// masqueFinal : le masque du rognage au maillage (marge resolue, trous interieurs remplis en
+	// mode silhouette), garde pour que l etape finale recoupe le rendu a la meme silhouette
+	// apres l eau et les calques peints. Nil tant qu aucun rognage n a eu lieu.
+	masqueFinal []bool
 	// referenceNavmesh : l altitude du sol donnee par le maillage, gardee apres que la voie de
 	// reference a libere ses tampons. NaN hors du maillage.
 	referenceNavmesh []float64

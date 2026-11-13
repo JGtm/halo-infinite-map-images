@@ -307,6 +307,8 @@ func CuitCarteForge(ctx context.Context, opts OptionsCuissonForge) (*Rendu, Bila
 	rogneAltitudesEtPositionsForge(ctx, r, opts)
 	cadreAuxAncresEtZonesForge(ctx, r, opts)
 	borneALaBoite(ctx, r, &b, boiteForge(ctx, opts))
+	// En tout dernier : le rendu est recoupe a la silhouette du rognage, apres les calques peints.
+	appliqueNavmesh(ctx, r, &b, opts.Navmesh, etapeFinale)
 	if b.VolumesDeMort == 0 {
 		b.degrade(ctx, "aucun volume de mort reconnu — l'empreinte des types a peut-etre bouge")
 	}

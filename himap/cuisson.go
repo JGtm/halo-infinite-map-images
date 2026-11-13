@@ -322,6 +322,8 @@ func CuitCarteNative(ctx context.Context, opts OptionsCuisson) (*Rendu, BilanCui
 	if !opts.SansEau {
 		PoseEauDepuisModule(ctx, r, &b, opts.CheminModule)
 	}
+	// En tout dernier : l eau se pose apres le rognage et ne connait pas son masque.
+	appliqueNavmesh(ctx, r, &b, opts.Navmesh, etapeFinale)
 	slog.InfoContext(ctx, "carte cuite", "module", b.Module,
 		"instances", b.Dessinees, "decor", b.EcarteesDecor,
 		"ancres", fmt.Sprintf("%d/%d", b.AncresAvecSol, b.AncresDansLeCadre),

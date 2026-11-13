@@ -149,7 +149,7 @@ func (r *Rendu) EffaceHorsNavmesh(marge float64) int {
 	if r.couvertureNavmesh == nil {
 		return 0
 	}
-	return r.effaceHorsMasque(r.dilateCouverture(marge))
+	return r.effaceHorsMasque(r.masqueDeRognage(ModeFaces, marge))
 }
 
 // EffaceHorsSilhouetteNavmesh est EffaceHorsNavmesh en mode silhouette : le masque dilate de
@@ -158,7 +158,17 @@ func (r *Rendu) EffaceHorsSilhouetteNavmesh(marge float64) int {
 	if r.couvertureNavmesh == nil {
 		return 0
 	}
-	return r.effaceHorsMasque(remplitTrous(r.dilateCouverture(marge), r.NX, r.NY))
+	return r.effaceHorsMasque(r.masqueDeRognage(ModeSilhouette, marge))
+}
+
+// masqueDeRognage rend le masque des cellules que le rognage au maillage retient : la
+// couverture memorisee dilatee de `marge`, et en mode silhouette ses trous interieurs remplis.
+func (r *Rendu) masqueDeRognage(mode ModeNavmesh, marge float64) []bool {
+	masque := r.dilateCouverture(marge)
+	if mode == ModeSilhouette {
+		return remplitTrous(masque, r.NX, r.NY)
+	}
+	return masque
 }
 
 // effaceHorsMasque efface la matiere des cellules que `couvert` ne retient pas et rend leur nombre.
@@ -178,6 +188,29 @@ func (r *Rendu) effaceHorsMasque(couvert []bool) int {
 		efface++
 	}
 	return efface
+}
+
+// effaceHorsMasqueFinal recoupe le rendu au masque du rognage : matiere, sol suppose et eau hors
+// du masque disparaissent. Rend les cellules de matiere retirees et les cellules d'eau visibles
+// retirees (l'eau n'est comptee que si elle se voyait : voir Rendu.Eau).
+func (r *Rendu) effaceHorsMasqueFinal() (matiere, eau int) {
+	if r.masqueFinal == nil {
+		return 0, 0
+	}
+	for j := 0; j < r.NY; j++ {
+		for i := 0; i < r.NX; i++ {
+			if r.masqueFinal[j*r.NX+i] || !r.Eau(i, j) {
+				continue
+			}
+			eau++
+		}
+	}
+	for k := range r.eau {
+		if !r.masqueFinal[k] {
+			r.eau[k] = false
+		}
+	}
+	return r.effaceHorsMasque(r.masqueFinal), eau
 }
 
 // dilateCouverture rend le masque des cellules couvertes par le maillage, elargi de `marge`
