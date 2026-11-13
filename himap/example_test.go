@@ -54,8 +54,9 @@ func ExampleChargeMaillageNatif() {
 		RacineDeploy: deploy,
 		CheminModule: deploy + "/pc/levels/multi/ctf_bazaar/ctf_bazaar-rtx-new.module",
 		Ancres:       [][3]float64{{-22.8, 0.2, 3.1}, {22.6, 0.2, 3.1}, {0.0, -7.7, 2.3}}, // objectives, world metres
-		// Reference surface from the mesh, matter further than 1.5 m from it erased.
-		Navmesh: himap.OptionsNavmesh{Maillage: maillage, Rogne: true, Marge: 1.5},
+		// Reference surface from the mesh, matter further than 0.5 m from it erased, holes inside
+		// the silhouette (rocks, pillars) kept.
+		Navmesh: himap.OptionsNavmesh{Maillage: maillage, Rogne: true, Mode: himap.ModeSilhouette, Marge: 0.5},
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -64,7 +65,7 @@ func ExampleChargeMaillageNatif() {
 	_ = himap.FondPNG(r, r.NX, r.NY, nil, himap.StylePlan)
 
 	// The mesh edges seen by one face only are the walls of the floor plan, in world metres.
-	plan, err := himap.PlanDesMurs(maillage)
+	plan, err := himap.PlanDesMurs(maillage, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -72,4 +73,10 @@ func ExampleChargeMaillageNatif() {
 		_ = a // {x1, y1, x2, y2}
 	}
 	log.Printf("%d wall edges for %d faces", len(plan.Aretes), plan.Faces)
+
+	// The same plan as an image, with the frame and calibration of the background so that the
+	// two overlay.
+	if _, err := himap.PlanPNG(maillage, nil, himap.CalageFondDuRendu(r)); err != nil {
+		log.Fatal(err)
+	}
 }

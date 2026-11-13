@@ -8,6 +8,7 @@ package himap
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/JGtm/halo-infinite-files-reader/hinavmesh"
 )
@@ -33,14 +34,16 @@ func cleArete(i, j int32) paireSommets {
 	return paireSommets{i, j}
 }
 
-// PlanDesMurs rend les aretes de bord de `m` : celles que UNE seule face porte. Une arete vue
-// deux fois, dans un sens ou dans l'autre, est un passage et n'y figure pas. La sortie est
+// PlanDesMurs rend les aretes de bord de `m` : celles que UNE seule face GARDEE porte. `garde`
+// dit, par indice de face, celles qui comptent (voir ComposantesRetenues) ; nil les garde toutes.
+// Une arete vue deux fois, dans un sens ou dans l'autre, est un passage et n'y figure pas ; une
+// arete entre une face gardee et une face ecartee est donc un bord. La sortie est
 // deterministe pour un maillage donne. Un maillage nil rend un plan vide.
 //
 // Une face de moins de trois sommets n'est pas une surface et est ignoree, comme une arete
 // dont les deux indices sont egaux (sommet repete). Un indice negatif ou hors de
 // `m.Sommets` est une erreur : le maillage est incoherent, pas le plan.
-func PlanDesMurs(m *hinavmesh.Maillage) (PlanMurs, error) {
+func PlanDesMurs(m *hinavmesh.Maillage, garde []bool) (PlanMurs, error) {
 	if m == nil {
 		return PlanMurs{}, nil
 	}
@@ -53,8 +56,8 @@ func PlanDesMurs(m *hinavmesh.Maillage) (PlanMurs, error) {
 		}
 	}
 	vues := make(map[paireSommets]int)
-	pourChaqueArete(m, func(i, j int32) { vues[cleArete(i, j)]++ })
-	pourChaqueArete(m, func(i, j int32) {
+	pourChaqueArete(m, garde, func(i, j int32) { vues[cleArete(i, j)]++ })
+	pourChaqueArete(m, garde, func(i, j int32) {
 		if vues[cleArete(i, j)] != 1 {
 			return
 		}
@@ -64,10 +67,13 @@ func PlanDesMurs(m *hinavmesh.Maillage) (PlanMurs, error) {
 	return plan, nil
 }
 
-// pourChaqueArete parcourt, dans l'ordre des faces puis du contour, les aretes de toutes les
-// faces d'au moins trois sommets, sauf celles dont les deux indices sont egaux.
-func pourChaqueArete(m *hinavmesh.Maillage, f func(i, j int32)) {
-	for _, face := range m.Faces {
+// pourChaqueArete parcourt, dans l'ordre des faces puis du contour, les aretes des faces gardees
+// (`garde` nil : toutes) d'au moins trois sommets, sauf celles dont les deux indices sont egaux.
+func pourChaqueArete(m *hinavmesh.Maillage, garde []bool, f func(i, j int32)) {
+	for idx, face := range m.Faces {
+		if garde != nil && (idx >= len(garde) || !garde[idx]) {
+			continue
+		}
 		n := len(face.Sommets)
 		if n < 3 {
 			continue
@@ -78,4 +84,53 @@ func pourChaqueArete(m *hinavmesh.Maillage, f func(i, j int32)) {
 			}
 		}
 	}
+}
+
+// PlanRogneAuCadre rend le plan dont chaque arete est coupee au cadre du fond decrit par `cal` :
+// une arete entierement dehors disparait, une arete qui sort est raccourcie a la frontiere.
+// Sommets et Faces sont repris du plan. Un cadre sans surface rend un plan sans arete.
+func PlanRogneAuCadre(plan PlanMurs, cal CalageFond) PlanMurs {
+	out := PlanMurs{Sommets: plan.Sommets, Faces: plan.Faces}
+	if cal.Largeur <= 0 || cal.Hauteur <= 0 || cal.MetresParPixel <= 0 {
+		return out
+	}
+	xMin, xMax := cal.OrigineX, cal.OrigineX+float64(cal.Largeur)*cal.MetresParPixel
+	yMax, yMin := cal.OrigineY, cal.OrigineY-float64(cal.Hauteur)*cal.MetresParPixel
+	for _, a := range plan.Aretes {
+		if c, ok := coupeAuCadre(a, xMin, yMin, xMax, yMax); ok {
+			out.Aretes = append(out.Aretes, c)
+		}
+	}
+	return out
+}
+
+// coupeAuCadre coupe le segment `a` au rectangle [xMin, xMax] x [yMin, yMax] (Liang-Barsky) et
+// dit s'il en reste quelque chose. Un segment qui ne sort pas est rendu a l'identique.
+func coupeAuCadre(a [4]float64, xMin, yMin, xMax, yMax float64) ([4]float64, bool) {
+	dx, dy := a[2]-a[0], a[3]-a[1]
+	t0, t1 := 0.0, 1.0
+	// p/q : un couple par bord (gauche, droite, bas, haut).
+	p := [4]float64{-dx, dx, -dy, dy}
+	q := [4]float64{a[0] - xMin, xMax - a[0], a[1] - yMin, yMax - a[1]}
+	for k := 0; k < 4; k++ {
+		if p[k] == 0 {
+			if q[k] < 0 {
+				return a, false // parallele au bord et dehors
+			}
+			continue
+		}
+		t := q[k] / p[k]
+		if p[k] < 0 {
+			t0 = math.Max(t0, t)
+		} else {
+			t1 = math.Min(t1, t)
+		}
+	}
+	if t0 > t1 {
+		return a, false
+	}
+	if t0 == 0 && t1 == 1 {
+		return a, true
+	}
+	return [4]float64{a[0] + t0*dx, a[1] + t0*dy, a[0] + t1*dx, a[1] + t1*dy}, true
 }

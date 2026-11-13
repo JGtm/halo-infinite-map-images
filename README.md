@@ -87,21 +87,65 @@ be extracted (a warning is logged).
 Both cooking chains take the mesh through one `OptionsNavmesh` (`OptionsCuisson.Navmesh` for
 native maps, `OptionsCuissonForge.Navmesh` for Forge maps, whose mesh comes from the variant's
 `navmesh.blob` via `hinavmesh.Decode`): the mesh replaces the anchor interpolation as the
-reference surface, `Rogne` erases the matter farther than `Marge` metres (zero means 3 m) from
-it, `Tolerance` empties cells whose surface is farther than that from the mesh floor, and
+reference surface, `Rogne` erases the matter farther than `Marge` metres (zero means 0.5 m, on both
+chains) from it in the shape given by `Mode`, `Tolerance` empties cells whose surface is farther than that from the mesh floor, and
 `NiveauHaut` keeps the highest level where two overlap. On native maps the clipping runs after
 the other erasing steps, so `BilanCuisson.CellulesHorsNavmesh` counts the matter of the final
 image that the mesh removed.
 
-`PlanDesMurs(maillage)` returns the floor plan as world-metre segments: the mesh edges that only
-one face carries, in a stable order (an error for an out-of-range vertex index). `StylePlan` renders a `Rendu` as a
-flat fill outlined at its silhouette, to judge a clipping; it is a diagnostic look, not the
-default one.
+`PlanDesMurs(maillage, garde)` returns the floor plan as world-metre segments: the mesh edges that
+only one kept face carries (`garde` says, per face, which ones count; nil keeps them all), in a
+stable order (an error for an out-of-range vertex index). `PlanRogneAuCadre(plan, calage)` cuts the
+segments at the frame of a background image. `StylePlan` renders a `Rendu` as a flat fill outlined
+at its silhouette, to judge a clipping; it is a diagnostic look, not the default one.
+
+### Components kept
+
+A navigation mesh can hold slabs that are not the arena: on fifteen Forge maps the largest
+component is the canvas floor, not the playable ground. `ComposantesRetenues(maillage, ancres,
+matiere)` decides which connected components to keep (two faces are connected as soon as they
+share a vertex). A component is kept when:
+
+- it carries at least one objective anchor with a vertical support: the anchor's XY falls inside
+  one of its faces and its altitude is within 2 m of that face (`AppuiVerticalAncre`); or
+- it covers at least 4 m2 (`AireMinimaleIlot`) and at least 90 % of its area lies on the matter of
+  the render when the clipping happens (`PartMinimaleSurMatiere`): a playable islet without any
+  objective, such as an isolated weapon pedestal, stays.
+
+If nothing passes (no anchor, no matter), the component with the largest area is kept. The result
+(`Retenues`) gives the per-face mask and counts: kept and discarded components, their areas, how
+many were kept by anchor and by matter. `BilanCuisson.Navmesh` carries the same counts.
+
+Both cooking chains apply the selection twice. The reference surface is armed before the
+geometry is projected, so it only knows the anchors (and the fallback) and reads only the faces of
+the kept components; the clipping runs after the projection and chooses again with the render's
+matter, which can save islets the reference ignored (they are drawn but not substituted).
+
+### Silhouette mode
+
+`OptionsNavmesh.Mode` shapes the clipping mask. `ModeFaces` (the default) keeps the matter within
+`Marge` of the kept faces. `ModeSilhouette` also keeps every hole that cannot be reached from the
+border of the grid by walking outside the mask: rocks, pillars and water inside the arena stay
+drawn, while a gap open to the outside (a canyon, a bay) stays out. `BilanCuisson.Navmesh` records
+the mode and margin that were applied.
+
+The default margin is now 0.5 m on both chains (it was 3 m on the Forge chain): a 3 m margin kept
+the rocks and cliffs that border an arena without being part of it. Pass `Marge: 3` for the old
+behaviour. `OptionsCuissonForge.CombleAuMaillage` also fills at that default margin.
+
+### Plan image
+
+`PlanPNG(maillage, garde, calage)` draws the exact silhouette of the kept faces (no margin, interior
+holes filled as in silhouette mode) as a flat fill, with the border edges as a dark line, on a light
+paper. `CalageFondDuRendu(r)` gives the frame of a `Rendu`, so the image has the dimensions and the
+calibration of the background, so that the two overlay exactly. The edges are cut at the frame
+(`PlanRogneAuCadre`).
 
 Breaking change from v1.0.x: `OptionsCuissonForge` lost `NavmeshReference`, `RogneAuNavmesh`,
 `MargeNavmeshCarte`, `ToleranceNavmesh` and `MaillageNiveauHaut`, replaced by `Navmesh`.
-`ArmeReferenceDepuisNavmesh` takes the high-level flag as a parameter and the package variable
-`NiveauHautNavmesh` is gone. `PlanDesMurs` returns `(PlanMurs, error)`.
+`ArmeReferenceDepuisNavmesh` takes the face mask and the high-level flag as parameters and the package
+variable `NiveauHautNavmesh` is gone. `PlanDesMurs` returns `(PlanMurs, error)` and takes the face mask.
+The default clipping margin went from 3 m to 0.5 m on the Forge chain.
 
 ## Requirements
 
