@@ -32,7 +32,7 @@ const MargeNavmesh = 3.0
 //
 // Les cellules que le maillage ne couvre pas gardent NaN : elles ne seront jamais substituees,
 // ce qui est la bonne reponse — hors du sol jouable, on n'a rien a dire.
-// NiveauHautNavmesh, quand il est vrai, fait garder la surface la PLUS HAUTE du maillage la ou
+// `niveauHaut`, quand il est vrai, fait garder la surface la PLUS HAUTE du maillage la ou
 // deux niveaux se superposent, au lieu de la plus basse.
 //
 // POURQUOI CE CHOIX EXISTE, ET CE QU IL CORRIGE. La reference sert de cible a la substitution :
@@ -49,9 +49,7 @@ const MargeNavmesh = 3.0
 //
 // Ce que ca coute, et il faut le savoir : la ou une passerelle survole une cour, c est la
 // passerelle qu on voit et la cour qui disparait. C est le choix normal d une vue de dessus.
-var NiveauHautNavmesh = false
-
-func (r *Rendu) ArmeReferenceDepuisNavmesh(m *hinavmesh.Maillage) int {
+func (r *Rendu) ArmeReferenceDepuisNavmesh(m *hinavmesh.Maillage, niveauHaut bool) int {
 	n := r.NX * r.NY
 	r.ref = make([]float64, n)
 	r.dRef = make([]float64, n)
@@ -67,7 +65,7 @@ func (r *Rendu) ArmeReferenceDepuisNavmesh(m *hinavmesh.Maillage) int {
 		a := [3]float64{t[0].X, t[0].Y, t[0].Z}
 		b := [3]float64{t[1].X, t[1].Y, t[1].Z}
 		c := [3]float64{t[2].X, t[2].Y, t[2].Z}
-		couvertes += r.poseReferenceTriangle(a, b, c)
+		couvertes += r.poseReferenceTriangle(a, b, c, niveauHaut)
 	}
 	// La couverture est MEMORISEE ici, car AppliqueReference libere les tampons de reference en
 	// sortant : sans cela, le rognage qui vient apres ne trouverait plus rien et effacerait zero
@@ -87,7 +85,7 @@ func (r *Rendu) ArmeReferenceDepuisNavmesh(m *hinavmesh.Maillage) int {
 // Deux surfaces peuvent se superposer — une passerelle au-dessus d'une salle : on garde alors
 // la PLUS BASSE. C'est le sol de l'etage principal qui doit servir de reference, et une
 // passerelle est justement ce qu'on veut voir POSE dessus, pas ce qu'on veut prendre pour lui.
-func (r *Rendu) poseReferenceTriangle(a, b, c [3]float64) int {
+func (r *Rendu) poseReferenceTriangle(a, b, c [3]float64, niveauHaut bool) int {
 	minX := math.Min(a[0], math.Min(b[0], c[0]))
 	maxX := math.Max(a[0], math.Max(b[0], c[0]))
 	minY := math.Min(a[1], math.Min(b[1], c[1]))
@@ -112,7 +110,7 @@ func (r *Rendu) poseReferenceTriangle(a, b, c [3]float64) int {
 				nouvelles++
 				continue
 			}
-			if NiveauHautNavmesh {
+			if niveauHaut {
 				if z > r.ref[k] {
 					r.ref[k] = z
 				}

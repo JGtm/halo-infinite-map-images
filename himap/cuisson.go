@@ -75,6 +75,10 @@ type OptionsCuisson struct {
 	CheminModule string
 	// Ancres sont les positions monde des objectifs de la carte.
 	Ancres [][3]float64
+	// Navmesh : le maillage de navigation de la carte (voir ChargeMaillageNatif) et ce qu on en
+	// fait. Applique a la cuisson avant les rognages ci-dessous : la reference vient du maillage
+	// au lieu des ancres, puis la matiere hors maillage est effacee si `Navmesh.Rogne`.
+	Navmesh OptionsNavmesh
 	// SansFrontiere neutralise la coquille de mort. TEMOIN de comparaison uniquement :
 	// jamais une option de production.
 	SansFrontiere bool
@@ -211,6 +215,12 @@ type BilanCuisson struct {
 	CellulesHorsZones int
 	// CellulesHorsBoite : matiere effacee par le bornage MANUEL (BoiteUtile).
 	CellulesHorsBoite int
+	// CellulesHorsNavmesh : cellules de matiere que le rognage au maillage de navigation
+	// (OptionsNavmesh.Rogne) a retirees de l image. Sur une carte native le rognage passe apres la
+	// frontiere de mort, les zones et la boite : c est la matiere de l image finale que le
+	// maillage retire, pas des cellules deja vides. Sur une carte Forge il garde sa place
+	// historique, avant les zones et le comblement. Zero sans rognage.
+	CellulesHorsNavmesh int
 	// CellulesSolSuppose : cellules comblees par un APLAT, pas relevees. Publie au sidecar.
 	CellulesSolSuppose int
 	// PlansFrontiere / FrontiereAppliquee / CellulesEffacees : la coquille de mort declaree
@@ -276,7 +286,11 @@ func CuitCarteNative(ctx context.Context, opts OptionsCuisson) (*Rendu, BilanCui
 	// La voie de reference contre les TOITS : armee avant de projeter, decidee juste apres —
 	// et AVANT la frontiere, pour que celle-ci efface sur l'image finale.
 	s := NewSurfaceReference(opts.Ancres)
-	r.ArmeReference(s)
+	if opts.Navmesh.Maillage != nil {
+		appliqueNavmesh(ctx, r, &b, opts.Navmesh, etapeReference)
+	} else {
+		r.ArmeReference(s)
+	}
 
 	if err := PeupleDepuisModule(ctx, r, &b, opts); err != nil {
 		return nil, b, err
@@ -292,6 +306,10 @@ func CuitCarteNative(ctx context.Context, opts OptionsCuisson) (*Rendu, BilanCui
 	appliqueFrontiere(ctx, r, &b, opts, zJeu)
 	mesureEtRogneZones(ctx, r, &b, opts)
 	borneALaBoite(ctx, r, &b, opts.BoiteUtile)
+	// Le rognage au maillage passe apres tous les autres effacements de forme (frontiere, zones,
+	// boite) : son compteur est alors la matiere de l image finale que le maillage retire. Il
+	// precede l elagage des composantes, qui doit voir l effacement definitif.
+	appliqueNavmesh(ctx, r, &b, opts.Navmesh, etapeRognage)
 	if opts.RogneAuxComposantesAncrees {
 		n, gardees, total := r.GardeComposantesAncrees(opts.Ancres)
 		slog.InfoContext(ctx, "mapfond: composantes sans ancre effacees", "carte", b.Module,

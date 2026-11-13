@@ -88,3 +88,32 @@ func seulPixelOpaque(img *image.RGBA, larg, haut int) (int, int, int) {
 	}
 	return px, py, n
 }
+
+// TestStylePlanCerneLaSilhouette : un bloc plein 3 x 3 en `StylePlan` n'a qu'une cellule
+// interieure (l'aplat), ses huit voisines portent le trait, et le style est declare connu.
+func TestStylePlanCerneLaSilhouette(t *testing.T) {
+	if !StyleFondValide(StylePlan) {
+		t.Fatal("StylePlan absent de StylesFond")
+	}
+	r := NewRendu([2]float64{0, 0}, [2]float64{9 * EchelleFondCarte, 9 * EchelleFondCarte}, EchelleFondCarte)
+	for i := 3; i < 6; i++ {
+		for j := 3; j < 6; j++ {
+			remplitCellule(r, i, j)
+		}
+	}
+	img := FondPNG(r, r.NX, r.NY, nil, StylePlan)
+	aplat, contour := 0, 0
+	for y := 0; y < r.NY; y++ {
+		for x := 0; x < r.NX; x++ {
+			switch img.RGBAAt(x, y) {
+			case teintePlanAplat:
+				aplat++
+			case teintePlanContour:
+				contour++
+			}
+		}
+	}
+	if aplat != 1 || contour != 8 {
+		t.Errorf("%d cellule(s) d'aplat et %d de contour, attendu 1 et 8", aplat, contour)
+	}
+}
