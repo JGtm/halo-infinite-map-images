@@ -10,6 +10,7 @@ package himap
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/JGtm/halo-infinite-files-reader/hinavmesh"
@@ -25,7 +26,12 @@ type OptionsNavmesh struct {
 	Maillage *hinavmesh.Maillage
 	// Rogne efface la matiere hors du maillage, dilate de `Marge`.
 	Rogne bool
-	// Marge : dilatation du masque de rognage, en metres. ZERO = `MargeNavmesh` (3 m).
+	// Mode : forme du masque de rognage. Vide ou ModeFaces : les faces gardees, dilatees de
+	// `Marge`. ModeSilhouette : idem, trous interieurs remplis (rochers, piliers et eau au milieu
+	// de l arene restent dessines). Un mode inconnu est journalise et traite comme ModeFaces.
+	Mode ModeNavmesh
+	// Marge : dilatation du masque de rognage, en metres. ZERO = `MargeNavmesh` (0,5 m ; c etait
+	// 3 m sur la chaine Forge jusqu au 2026-11-13).
 	//
 	// La marge garde les MURS qui bordent le sol : le maillage se retire des parois, et rogner
 	// au ras rendrait une carte sans ses cloisons. Mais elle garde aussi ce qui borde le sol
@@ -39,6 +45,32 @@ type OptionsNavmesh struct {
 	// niveaux se superposent, pour que les etages et les passerelles survivent a la
 	// substitution. Sert a l armement de la reference (ArmeReferenceDepuisNavmesh).
 	NiveauHaut bool
+
+	// ancres : positions monde des objectifs, posees par la chaine de cuisson avant
+	// l etape de reference. Elles servent a choisir les composantes du maillage retenues.
+	ancres [][3]float64
+}
+
+// BilanNavmesh est ce qu'une cuisson a fait du maillage de navigation : forme et marge du
+// rognage, et le sort des composantes du maillage (voir ComposantesRetenues).
+type BilanNavmesh struct {
+	// Mode et Marge : ce que le rognage a appliqué. Vides tant qu aucun rognage n a eu lieu.
+	Mode  ModeNavmesh
+	Marge float64
+	// Gardees et Ecartees : composantes du maillage retenues et ecartees ; AireGardee et
+	// AireEcartee : leur aire au sol cumulee, en m2. ParAncre et ParMatiere : par quel critere
+	// les gardees l ont ete. Repli : aucune ne passait, la plus grande a ete gardee.
+	Gardees, Ecartees       int
+	AireGardee, AireEcartee float64
+	ParAncre, ParMatiere    int
+	Repli                   bool
+}
+
+// note recopie le resultat d une selection de composantes dans le bilan.
+func (n *BilanNavmesh) note(res Retenues) {
+	n.Gardees, n.Ecartees = res.Gardees, res.Ecartees
+	n.AireGardee, n.AireEcartee = res.AireGardee, res.AireEcartee
+	n.ParAncre, n.ParMatiere, n.Repli = res.ParAncre, res.ParMatiere, res.Repli
 }
 
 // etapeNavmesh designe le moment de la cuisson ou le maillage s'applique.
@@ -55,25 +87,24 @@ const (
 // appliqueNavmesh applique a un rendu la part de `o` qui revient a `etape`. Sans maillage
 // (`o.Maillage == nil`) l'etape de reference ne fait rien, et celle de rognage ne rogne
 // qu'a la tolerance.
+//
+// Les composantes du maillage sont choisies DEUX fois : a la reference (avant la projection, donc
+// sans matiere : ancres et repli seulement), puis au rognage (avec la matiere du rendu, qui
+// sauve les ilots jouables sans objectif). Le bilan garde la derniere.
 func appliqueNavmesh(ctx context.Context, r *Rendu, b *BilanCuisson, o OptionsNavmesh, etape etapeNavmesh) {
 	switch etape {
 	case etapeReference:
 		if o.Maillage == nil {
 			return
 		}
-		couvertes := r.ArmeReferenceDepuisNavmesh(o.Maillage, o.NiveauHaut)
+		res := ComposantesRetenues(o.Maillage, o.ancres, nil)
+		b.Navmesh.note(res)
+		couvertes := r.ArmeReferenceDepuisNavmesh(o.Maillage, res.Garde, o.NiveauHaut)
 		slog.InfoContext(ctx, "mapfond: reference prise sur le maillage de navigation",
-			"carte", b.Module, "cellules", couvertes)
+			"carte", b.Module, "cellules", couvertes, "composantes", fmt.Sprintf("%d gardees, %d ecartees", res.Gardees, res.Ecartees))
 	case etapeRognage:
 		if o.Rogne && o.Maillage != nil {
-			marge := MargeNavmesh
-			if o.Marge > 0 {
-				marge = o.Marge
-			}
-			n := r.EffaceHorsNavmesh(marge)
-			b.CellulesHorsNavmesh = n
-			slog.InfoContext(ctx, "mapfond: matiere effacee hors du maillage de navigation",
-				"carte", b.Module, "cellules", n, "marge", marge)
+			rogneAuMaillage(ctx, r, b, o)
 		}
 		if o.Tolerance > 0 {
 			n := r.EffaceLoinDuNavmesh(o.Tolerance)
@@ -81,4 +112,33 @@ func appliqueNavmesh(ctx context.Context, r *Rendu, b *BilanCuisson, o OptionsNa
 				"carte", b.Module, "tolerance", o.Tolerance, "cellules", n)
 		}
 	}
+}
+
+// rogneAuMaillage efface la matiere hors du masque du maillage, dans le mode et a la marge de
+// `o`, apres avoir choisi les composantes avec la matiere du rendu.
+func rogneAuMaillage(ctx context.Context, r *Rendu, b *BilanCuisson, o OptionsNavmesh) {
+	marge := MargeNavmesh
+	if o.Marge > 0 {
+		marge = o.Marge
+	}
+	mode, connu := o.Mode.valide()
+	if !connu {
+		slog.WarnContext(ctx, "mapfond: mode de rognage au maillage inconnu, mode faces utilise",
+			"carte", b.Module, "mode", string(o.Mode))
+	}
+	res := ComposantesRetenues(o.Maillage, o.ancres, r.matiereEn)
+	b.Navmesh.note(res)
+	b.Navmesh.Mode, b.Navmesh.Marge = mode, marge
+	r.poseCouvertureNavmesh(o.Maillage, res.Garde)
+	var n int
+	if mode == ModeSilhouette {
+		n = r.EffaceHorsSilhouetteNavmesh(marge)
+	} else {
+		n = r.EffaceHorsNavmesh(marge)
+	}
+	b.CellulesHorsNavmesh = n
+	slog.InfoContext(ctx, "mapfond: matiere effacee hors du maillage de navigation",
+		"carte", b.Module, "cellules", n, "mode", string(mode), "marge", marge,
+		"composantes", fmt.Sprintf("%d gardees (%.0f m2, %d par ancre, %d par matiere, repli %t), %d ecartees (%.0f m2)",
+			res.Gardees, res.AireGardee, res.ParAncre, res.ParMatiere, res.Repli, res.Ecartees, res.AireEcartee))
 }

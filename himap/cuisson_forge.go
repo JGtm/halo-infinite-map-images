@@ -271,6 +271,7 @@ func CuitCarteForge(ctx context.Context, opts OptionsCuissonForge) (*Rendu, Bila
 	defer func() { SeuilCouvertureCarte = precedentCouverture }()
 	s := NewSurfaceReference(opts.Ancres)
 	if opts.Navmesh.Maillage != nil {
+		opts.Navmesh.ancres = opts.Ancres
 		appliqueNavmesh(ctx, r, &b, opts.Navmesh, etapeReference)
 	} else {
 		r.ArmeReference(s)
