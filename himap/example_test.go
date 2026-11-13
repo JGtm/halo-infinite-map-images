@@ -43,10 +43,7 @@ func ExampleCuitCarteNative() {
 // which case the cooking simply runs without one.
 func ExampleChargeMaillageNatif() {
 	ctx := context.Background()
-	deploy, err := himap.DeployRoot()
-	if err != nil {
-		log.Fatal(err)
-	}
+	deploy := "/path/to/Halo Infinite/deploy" // your install's deploy folder, or let himap.DeployRoot discover it
 	maillage, bilan, err := himap.ChargeMaillageNatif(ctx, deploy, "ctf_bazaar")
 	if err != nil && !errors.Is(err, himap.ErrSansMaillage) {
 		log.Fatal(err)
