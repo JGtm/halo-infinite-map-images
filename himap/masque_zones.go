@@ -20,7 +20,11 @@ package himap
 // cartes NATIVES (22 cartes au catalogue, 0 sur Forge). Cette voie ne vaudra jamais pour les
 // cartes Forge, qui sont pourtant les plus mal cadrees.
 
-import "math"
+import (
+	"context"
+	"log/slog"
+	"math"
+)
 
 // MargeMasqueZones : dilatation du masque des zones nommees, en metres.
 //
@@ -155,8 +159,13 @@ func (r *Rendu) EffaceHorsZones(masque []bool) int {
 // du rognage au maillage, voir silhouetteDuPlan), et le nombre de cellules de matiere que la
 // silhouette sauve : hors des zones, dans le plan. Sans silhouette (pas de rognage au maillage),
 // le masque est rendu tel quel : comportement inchange.
-func (r *Rendu) avecLaSilhouetteDuPlan(zones []bool) ([]bool, int) {
-	if r.masqueFinal == nil || len(r.masqueFinal) != len(zones) {
+func (r *Rendu) avecLaSilhouetteDuPlan(ctx context.Context, zones []bool) ([]bool, int) {
+	if r.masqueFinal == nil {
+		return zones, 0
+	}
+	if len(r.masqueFinal) != len(zones) {
+		slog.WarnContext(ctx, "mapfond: silhouette du plan et masque des zones de tailles differentes, silhouette ignoree",
+			"silhouette", len(r.masqueFinal), "zones", len(zones))
 		return zones, 0
 	}
 	union := make([]bool, len(zones))
@@ -172,8 +181,8 @@ func (r *Rendu) avecLaSilhouetteDuPlan(zones []bool) ([]bool, int) {
 
 // rogneAuxZonesEtSilhouette efface la matiere hors des zones `m` et hors de la silhouette du plan,
 // et note au bilan ce qui a ete efface et ce que la silhouette a sauve.
-func (r *Rendu) rogneAuxZonesEtSilhouette(b *BilanCuisson, m []bool) {
-	masque, sauvees := r.avecLaSilhouetteDuPlan(m)
+func (r *Rendu) rogneAuxZonesEtSilhouette(ctx context.Context, b *BilanCuisson, m []bool) {
+	masque, sauvees := r.avecLaSilhouetteDuPlan(ctx, m)
 	b.CellulesHorsZones = r.EffaceHorsZones(masque)
 	b.CellulesSauveesParPlan = sauvees
 }

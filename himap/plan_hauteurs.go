@@ -62,7 +62,9 @@ type planHauteurs struct {
 	top   []float64
 }
 
-// rassembleLesFaces retient les faces gardees d'au moins trois sommets, avec leur altitude.
+// rassembleLesFaces retient les faces gardees d'au moins trois sommets, avec leur altitude. Une
+// face dont l'altitude n'est pas finie (un sommet NaN ou infini) n'est pas retenue : elle
+// fausserait les centiles de la teinte, et un maillage incoherent ne doit pas faire paniquer.
 func (p *planHauteurs) rassembleLesFaces() {
 	for idx, f := range p.m.Faces {
 		if p.garde != nil && (idx >= len(p.garde) || !p.garde[idx]) {
@@ -75,7 +77,11 @@ func (p *planHauteurs) rassembleLesFaces() {
 		for _, s := range f.Sommets {
 			somme += p.m.Sommets[s].Z
 		}
-		p.faces = append(p.faces, faceHauteur{idx: idx, z: somme / float64(len(f.Sommets))})
+		z := somme / float64(len(f.Sommets))
+		if math.IsNaN(z) || math.IsInf(z, 0) {
+			continue
+		}
+		p.faces = append(p.faces, faceHauteur{idx: idx, z: z})
 	}
 }
 
@@ -130,8 +136,12 @@ func (p *planHauteurs) bornesDeTeinte() (bas, haut float64) {
 	return zs[len(zs)/50], zs[len(zs)-1-len(zs)/50]
 }
 
-// teinteDeRampe interpole continument sur la rampe : t = 0 est le bas, t = 1 le haut (borne).
+// teinteDeRampe interpole continument sur la rampe : t = 0 est le bas, t = 1 le haut (borne). Un
+// t indetermine (NaN) prend la teinte du milieu, celle d'une altitude inconnue.
 func teinteDeRampe(t float64) color.RGBA {
+	if math.IsNaN(t) {
+		t = 0.5
+	}
 	t = math.Max(0, math.Min(1, t)) * float64(len(rampePlanHauteurs)-1)
 	i := min(len(rampePlanHauteurs)-2, int(math.Floor(t)))
 	f := t - float64(i)

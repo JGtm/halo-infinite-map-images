@@ -36,20 +36,42 @@ const (
 )
 
 // traceLesAretes trace dans `img` les aretes de bord des faces retenues.
+//
+// Une arete n'est recouverte que par un AUTRE niveau que la face qui la porte : le seuil est le
+// plus grand de `ecartAreteCacheeMetres` et de l'amplitude en altitude de cette face. Sans cela,
+// une face en pente ferait recouvrir son propre bord bas par son altitude moyenne.
 func (p *planHauteurs) traceLesAretes(img *image.RGBA) {
+	retenue := make([]bool, len(p.m.Faces))
+	for _, f := range p.faces {
+		retenue[f.idx] = true
+	}
 	vues := make(map[paireSommets]int)
-	pourChaqueArete(p.m, p.garde, func(i, j int32) { vues[cleArete(i, j)]++ })
+	pourChaqueArete(p.m, retenue, func(i, j int32) { vues[cleArete(i, j)]++ })
 	ep := max(1, int(math.Round(epaisseurAreteMetres/p.cal.MetresParPixel)))
-	pourChaqueArete(p.m, p.garde, func(i, j int32) {
-		if vues[cleArete(i, j)] == 1 {
-			p.traceArete(img, p.m.Sommets[i], p.m.Sommets[j], ep)
+	for _, f := range p.faces {
+		sommets := p.m.Faces[f.idx].Sommets
+		seuil := max(ecartAreteCacheeMetres, p.amplitude(sommets))
+		for k, i := range sommets {
+			if j := sommets[(k+1)%len(sommets)]; i != j && vues[cleArete(i, j)] == 1 {
+				p.traceArete(img, p.m.Sommets[i], p.m.Sommets[j], ep, seuil)
+			}
 		}
-	})
+	}
+}
+
+// amplitude rend l'ecart d'altitude entre le sommet le plus haut et le plus bas d'une face.
+func (p *planHauteurs) amplitude(sommets []int32) float64 {
+	bas, haut := math.Inf(1), math.Inf(-1)
+	for _, s := range sommets {
+		bas, haut = math.Min(bas, p.m.Sommets[s].Z), math.Max(haut, p.m.Sommets[s].Z)
+	}
+	return haut - bas
 }
 
 // traceArete trace une arete de a vers b, pixel par pixel le long de son grand axe, l'altitude
-// interpolee le long du segment decidant de l'encre ou du pointille.
-func (p *planHauteurs) traceArete(img *image.RGBA, a, b hinavmesh.Point, ep int) {
+// interpolee le long du segment decidant de l'encre (dessus plus haut de `seuil` metres au plus)
+// ou du pointille.
+func (p *planHauteurs) traceArete(img *image.RGBA, a, b hinavmesh.Point, ep int, seuil float64) {
 	cal := p.cal
 	ux0, uy0 := (a.X-cal.OrigineX)/cal.MetresParPixel, (cal.OrigineY-a.Y)/cal.MetresParPixel
 	ux1, uy1 := (b.X-cal.OrigineX)/cal.MetresParPixel, (cal.OrigineY-b.Y)/cal.MetresParPixel
@@ -69,7 +91,7 @@ func (p *planHauteurs) traceArete(img *image.RGBA, a, b hinavmesh.Point, ep int)
 			continue
 		}
 		c := teinteAreteEncre
-		if p.top[y*cal.Largeur+x] > a.Z+(b.Z-a.Z)*f+ecartAreteCacheeMetres {
+		if p.top[y*cal.Largeur+x] > a.Z+(b.Z-a.Z)*f+seuil {
 			if (t/pasPointille)%2 == 1 {
 				continue
 			}

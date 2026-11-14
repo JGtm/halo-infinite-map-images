@@ -192,3 +192,56 @@ func TestPlanPNGEpaisseurDuTraitSuitLEchelle(t *testing.T) {
 		t.Errorf("%d colonnes d'encre sur l'arete ouest, attendu 2", n)
 	}
 }
+
+// Une face a altitude non finie est ecartee : pas de panique, la face normale garde une teinte
+// valide, la face ecartee ne laisse ni teinte ni arete.
+func TestPlanPNGIgnoreLesFacesAAltitudeNonFinie(t *testing.T) {
+	for _, mauvaise := range []float64{math.NaN(), math.Inf(1)} {
+		m := &hinavmesh.Maillage{}
+		ajouteRect(m, 1, 1, 4, 4, 5)
+		ajouteRect(m, 6, 6, 9, 9, mauvaise)
+		img, err := PlanPNG(m, nil, calageDix)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := img.RGBAAt(2, 7); got != teinteMilieu {
+			t.Errorf("z = %v : face normale = %v, attendu la teinte du milieu %v", mauvaise, got, teinteMilieu)
+		}
+		for _, p := range [][2]int{{7, 2}, {6, 3}, {8, 3}} {
+			if got := img.RGBAAt(p[0], p[1]); got != teintePlanPapier {
+				t.Errorf("z = %v : pixel %v de la face ecartee = %v, attendu le papier", mauvaise, p, got)
+			}
+		}
+	}
+	if got := teinteDeRampe(math.NaN()); got != teinteDeRampe(0.5) {
+		t.Errorf("t NaN = %v, attendu la teinte du milieu", got)
+	}
+}
+
+// Une face seule en pente (de 0 a 6 m) ne recouvre pas son propre bord bas : tous ses bords sont
+// en encre pleine, sans pointille ni gris.
+func TestPlanPNGFaceEnPenteNeRecouvrePasSesBords(t *testing.T) {
+	m := &hinavmesh.Maillage{
+		Sommets: []hinavmesh.Point{{X: 2, Y: 2, Z: 0}, {X: 8, Y: 2, Z: 0}, {X: 8, Y: 8, Z: 6}, {X: 2, Y: 8, Z: 6}},
+		Faces:   []hinavmesh.Face{{Sommets: []int32{0, 1, 2, 3}}},
+	}
+	img, err := PlanPNG(m, nil, calageDix)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for py := 0; py < 10; py++ {
+		for px := 0; px < 10; px++ {
+			if img.RGBAAt(px, py) == teinteAreteCachee {
+				t.Fatalf("pixel (%d, %d) en gris d'arete cachee : la face se recouvre elle-meme", px, py)
+			}
+		}
+	}
+	// Le bord bas (y = 2 m, ligne 8) et le bord haut (ligne 2) sont d'encre sur toute leur longueur.
+	for px := 2; px <= 8; px++ {
+		for _, py := range []int{2, 8} {
+			if got := img.RGBAAt(px, py); got != teinteAreteEncre {
+				t.Errorf("pixel (%d, %d) = %v, attendu l'encre %v", px, py, got, teinteAreteEncre)
+			}
+		}
+	}
+}

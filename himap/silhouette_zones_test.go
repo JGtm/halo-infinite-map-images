@@ -35,7 +35,7 @@ func TestSilhouettePrimeSurLeRognageAuxZones(t *testing.T) {
 		o := OptionsNavmesh{Maillage: anneauMaillage(), Rogne: c.rogne, Mode: ModeSilhouette, Marge: 0.2,
 			ancres: [][3]float64{{3, 3, 0}}}
 		appliqueNavmesh(context.Background(), r, &b, o, etapePlan)
-		r.rogneAuxZonesEtSilhouette(&b, zonesSurLesDeuxPremieresColonnes(r))
+		r.rogneAuxZonesEtSilhouette(context.Background(), &b, zonesSurLesDeuxPremieresColonnes(r))
 		survit := func(i, j int) bool { return !math.IsInf(r.z[j*r.NX+i], -1) }
 		// (0, 0) : dans les zones, hors du plan ; (5, 5) : dans le plan (le trou est rempli),
 		// hors des zones ; (9, 9) : hors des deux.
@@ -58,7 +58,7 @@ func TestSilhouettePrimeSurLeRognageAuxZones(t *testing.T) {
 func TestAvecLaSilhouetteDuPlanSansSilhouetteRendLesZones(t *testing.T) {
 	r := renduPleinDeMatiere()
 	zones := zonesSurLesDeuxPremieresColonnes(r)
-	union, sauvees := r.avecLaSilhouetteDuPlan(zones)
+	union, sauvees := r.avecLaSilhouetteDuPlan(context.Background(), zones)
 	if sauvees != 0 || &union[0] != &zones[0] {
 		t.Errorf("sans silhouette : %d sauvees, masque recopie %v ; attendu 0 et le meme masque", sauvees, &union[0] != &zones[0])
 	}

@@ -168,9 +168,11 @@ water removed.
 
 The plan is the reference mask: when the mesh clipping is armed, the named-zones clipping
 (`RogneAuxZones`) never erases a cell inside the plan silhouette. Its effective mask is the union of
-the dilated zones and the silhouette (the same mask as the final clip); without mesh clipping nothing
-changes. On the native chain the silhouette is computed just before the zones run, from the matter of
-that moment; the mesh clipping still chooses the components for good afterwards.
+the dilated zones and the silhouette; without mesh clipping nothing changes. On the Forge chain the
+silhouette is the very mask of the final clip. On the native chain the zones run before the mesh
+clipping, so the silhouette is computed just before them from the matter of that moment; the mesh
+clipping then chooses the components for good and the final clip uses that definitive mask, which
+can differ slightly.
 `BilanCuisson.CellulesSauveesParPlan` counts the cells of matter outside the zones that the
 silhouette kept (on Catalyst, the south platform that no callout covers).
 
