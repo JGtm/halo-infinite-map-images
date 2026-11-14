@@ -166,6 +166,14 @@ overflowed the plan view (Deadlock). No selection is redone. `BilanNavmesh.Cellu
 `EauRetiree` count what the final step removed, and `BilanCuisson.CellulesEau` is lowered by the
 water removed.
 
+The plan is the reference mask: when the mesh clipping is armed, the named-zones clipping
+(`RogneAuxZones`) never erases a cell inside the plan silhouette. Its effective mask is the union of
+the dilated zones and the silhouette (the same mask as the final clip); without mesh clipping nothing
+changes. On the native chain the silhouette is computed just before the zones run, from the matter of
+that moment; the mesh clipping still chooses the components for good afterwards.
+`BilanCuisson.CellulesSauveesParPlan` counts the cells of matter outside the zones that the
+silhouette kept (on Catalyst, the south platform that no callout covers).
+
 Breaking change from v1.0.x: `OptionsCuissonForge` lost `NavmeshReference`, `RogneAuNavmesh`,
 `MargeNavmeshCarte`, `ToleranceNavmesh` and `MaillageNiveauHaut`, replaced by `Navmesh`.
 `ArmeReferenceDepuisNavmesh` takes the face mask and the high-level flag as parameters and the package

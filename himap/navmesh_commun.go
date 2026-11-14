@@ -86,6 +86,9 @@ const (
 	etapeReference etapeNavmesh = iota
 	// etapeRognage : APRES la substitution, sur l'image qu'elle a rendue.
 	etapeRognage
+	// etapePlan : AVANT le rognage aux zones nommees, qui doit connaitre la silhouette du plan :
+	// pose le masque du rognage (voir silhouetteDuPlan). Le rognage au maillage le recalcule plus tard.
+	etapePlan
 	// etapeFinale : EN TOUT DERNIER, apres l'eau et tout autre calque peint : recoupe le rendu a
 	// la silhouette du rognage (voir recoupeALaSilhouette).
 	etapeFinale
@@ -110,6 +113,8 @@ func appliqueNavmesh(ctx context.Context, r *Rendu, b *BilanCuisson, o OptionsNa
 		couvertes := r.ArmeReferenceDepuisNavmesh(o.Maillage, res.Garde, o.NiveauHaut)
 		slog.InfoContext(ctx, "mapfond: reference prise sur le maillage de navigation",
 			"carte", b.Module, "cellules", couvertes, "composantes", fmt.Sprintf("%d gardees, %d ecartees", res.Gardees, res.Ecartees))
+	case etapePlan:
+		silhouetteDuPlan(r, o)
 	case etapeFinale:
 		recoupeALaSilhouette(ctx, r, b)
 	case etapeRognage:
@@ -176,4 +181,20 @@ func recoupeALaSilhouette(ctx context.Context, r *Rendu, b *BilanCuisson) {
 	b.CellulesEau -= eau
 	slog.InfoContext(ctx, "mapfond: rendu recoupe a la silhouette du plan",
 		"carte", b.Module, "matiere", matiere, "eau", eau)
+}
+
+// silhouetteDuPlan pose sur le rendu le masque que le rognage au maillage appliquera : composantes
+// choisies avec la matiere du moment, marge resolue, trous interieurs remplis en mode silhouette.
+// Le plan est le masque de reference : le rognage aux zones nommees, qui passe avant le rognage
+// au maillage sur la chaine native, ne doit jamais effacer une cellule qui y tombe
+// (voir Rendu.avecLaSilhouetteDuPlan). Sans maillage ni `Rogne`, il n'y a pas de silhouette et
+// rien n'est pose. Rien n'est note au bilan : la selection definitive reste celle du rognage.
+func silhouetteDuPlan(r *Rendu, o OptionsNavmesh) {
+	if o.Maillage == nil || !o.Rogne {
+		return
+	}
+	res := ComposantesRetenues(o.Maillage, o.ancres, r.matiereEn)
+	couverture := couvreTriangles(o.Maillage.TrianglesDe(res.Garde), r.Min, r.Cell, r.NX, r.NY)
+	mode, _ := o.Mode.valide()
+	r.masqueFinal = r.masqueDeCouverture(couverture, mode, o.margeEffective())
 }

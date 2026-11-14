@@ -978,7 +978,7 @@ func mesureEtRogneZonesForge(ctx context.Context, r *Rendu, b *BilanCuisson, opt
 		"zones", len(zs), "matiere", matiere, "dehors", dehors,
 		"part", fmt.Sprintf("%.1f%%", 100*part), "rogne", opts.RogneAuxZones, "marge", marge)
 	if opts.RogneAuxZones {
-		b.CellulesHorsZones = r.EffaceHorsZones(m)
+		r.rogneAuxZonesEtSilhouette(b, m)
 	}
 }
 

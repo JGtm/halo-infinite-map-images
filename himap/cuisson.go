@@ -213,6 +213,9 @@ type BilanCuisson struct {
 	// le rognage. CellulesHorsZones est ce qui a ete reellement efface.
 	MatiereHorsZones  int
 	CellulesHorsZones int
+	// CellulesSauveesParPlan : cellules de matiere hors des zones nommees que la silhouette du plan
+	// a empechees d etre effacees par le rognage aux zones (zero sans rognage au maillage).
+	CellulesSauveesParPlan int
 	// CellulesHorsBoite : matiere effacee par le bornage MANUEL (BoiteUtile).
 	CellulesHorsBoite int
 	// CellulesHorsNavmesh : cellules de matiere que le rognage au maillage de navigation
@@ -307,6 +310,8 @@ func CuitCarteNative(ctx context.Context, opts OptionsCuisson) (*Rendu, BilanCui
 		b.TauxCouverture, b.CellulesSubstituees, b.CarteCouverte = r.AppliqueReference(s, opts.SubstitutionSansPortee)
 	}
 	appliqueFrontiere(ctx, r, &b, opts, zJeu)
+	// Le plan est le masque de reference : la silhouette est posee avant que les zones n effacent.
+	appliqueNavmesh(ctx, r, &b, opts.Navmesh, etapePlan)
 	mesureEtRogneZones(ctx, r, &b, opts)
 	borneALaBoite(ctx, r, &b, opts.BoiteUtile)
 	// Le rognage au maillage passe apres tous les autres effacements de forme (frontiere, zones,
@@ -591,7 +596,7 @@ func mesureEtRogneZones(ctx context.Context, r *Rendu, b *BilanCuisson, opts Opt
 		"zones", len(opts.ZonesNommees), "matiere", matiere, "dehors", dehors,
 		"part", fmt.Sprintf("%.1f%%", 100*part), "rogne", opts.RogneAuxZones)
 	if opts.RogneAuxZones {
-		b.CellulesHorsZones = r.EffaceHorsZones(m)
+		r.rogneAuxZonesEtSilhouette(b, m)
 	}
 	if opts.CombleZonesEntieres {
 		// Masque NON DILATE : la dilatation d une zone n est pas du terrain joue, et c est elle

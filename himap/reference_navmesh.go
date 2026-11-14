@@ -164,7 +164,13 @@ func (r *Rendu) EffaceHorsSilhouetteNavmesh(marge float64) int {
 // masqueDeRognage rend le masque des cellules que le rognage au maillage retient : la
 // couverture memorisee dilatee de `marge`, et en mode silhouette ses trous interieurs remplis.
 func (r *Rendu) masqueDeRognage(mode ModeNavmesh, marge float64) []bool {
-	masque := r.dilateCouverture(marge)
+	return r.masqueDeCouverture(r.couvertureNavmesh, mode, marge)
+}
+
+// masqueDeCouverture est masqueDeRognage pour une couverture donnee : `base` dilatee de `marge`,
+// ses trous interieurs remplis en mode silhouette.
+func (r *Rendu) masqueDeCouverture(base []bool, mode ModeNavmesh, marge float64) []bool {
+	masque := r.dilate(base, marge)
 	if mode == ModeSilhouette {
 		return remplitTrous(masque, r.NX, r.NY)
 	}
@@ -217,7 +223,11 @@ func (r *Rendu) effaceHorsMasqueFinal() (matiere, eau int) {
 // metres. La dilatation garde les murs et les rebords qui bordent le sol : le navmesh se
 // retire le long des parois, et s'arreter net a son bord amputerait la silhouette.
 func (r *Rendu) dilateCouverture(marge float64) []bool {
-	base := r.couvertureNavmesh
+	return r.dilate(r.couvertureNavmesh, marge)
+}
+
+// dilate elargit le masque `base` de `marge` metres.
+func (r *Rendu) dilate(base []bool, marge float64) []bool {
 	rayon := int(marge/r.Cell + 0.5)
 	if rayon <= 0 {
 		return base
