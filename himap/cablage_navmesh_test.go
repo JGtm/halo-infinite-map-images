@@ -72,8 +72,8 @@ func TestPlanPNGIgnoreLesFacesEcartees(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := img.RGBAAt(2, 7); got != teintePlanAplat { // x = 2,5 ; y = 2,5
-		t.Errorf("face gardee : %v, attendu l'aplat", got)
+	if got := img.RGBAAt(2, 7); got != teinteMilieu { // x = 2,5 ; y = 2,5
+		t.Errorf("face gardee : %v, attendu la teinte du milieu", got)
 	}
 	for _, p := range [][2]int{{7, 2}, {6, 1}, {8, 3}} { // dedans, au bord et sur le contour de la face ecartee
 		if got := img.RGBAAt(p[0], p[1]); got != teintePlanPapier {
@@ -82,7 +82,7 @@ func TestPlanPNGIgnoreLesFacesEcartees(t *testing.T) {
 	}
 }
 
-// Carre de 6 m (de 2 a 8 m) a 1 m/px dans un cadre de 10 x 10 : 25 pixels d'aplat hors trait (le
+// Carre de 6 m (de 2 a 8 m) a 1 m/px dans un cadre de 10 x 10 : 25 pixels de face hors trait (le
 // bloc 3..7 x 3..7), 24 de trait (le cadre de 7 x 7 pixels de 2 a 8), 51 de papier.
 // Mutation jouee : aplat decale d'un pixel.
 func TestPlanPNGCompteExactSurUnCarre(t *testing.T) {
@@ -95,11 +95,11 @@ func TestPlanPNGCompteExactSurUnCarre(t *testing.T) {
 	for py := 0; py < 10; py++ {
 		for px := 0; px < 10; px++ {
 			switch img.RGBAAt(px, py) {
-			case teintePlanAplat:
+			case teinteMilieu:
 				aplat++
 				minX, maxX = min(minX, px), max(maxX, px)
 				minY, maxY = min(minY, py), max(maxY, py)
-			case teintePlanContour:
+			case teinteAreteEncre:
 				trait++
 			case teintePlanPapier:
 				papier++

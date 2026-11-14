@@ -213,6 +213,9 @@ type BilanCuisson struct {
 	// le rognage. CellulesHorsZones est ce qui a ete reellement efface.
 	MatiereHorsZones  int
 	CellulesHorsZones int
+	// CellulesSauveesParPlan : cellules de matiere hors des zones nommees que la silhouette du plan
+	// a empechees d etre effacees par le rognage aux zones (zero sans rognage au maillage).
+	CellulesSauveesParPlan int
 	// CellulesHorsBoite : matiere effacee par le bornage MANUEL (BoiteUtile).
 	CellulesHorsBoite int
 	// CellulesHorsNavmesh : cellules de matiere que le rognage au maillage de navigation
@@ -307,21 +310,14 @@ func CuitCarteNative(ctx context.Context, opts OptionsCuisson) (*Rendu, BilanCui
 		b.TauxCouverture, b.CellulesSubstituees, b.CarteCouverte = r.AppliqueReference(s, opts.SubstitutionSansPortee)
 	}
 	appliqueFrontiere(ctx, r, &b, opts, zJeu)
-	mesureEtRogneZones(ctx, r, &b, opts)
-	borneALaBoite(ctx, r, &b, opts.BoiteUtile)
-	// Le rognage au maillage passe apres tous les autres effacements de forme (frontiere, zones,
-	// boite) : son compteur est alors la matiere de l image finale que le maillage retire. Il
-	// precede l elagage des composantes, qui doit voir l effacement definitif.
-	appliqueNavmesh(ctx, r, &b, opts.Navmesh, etapeRognage)
+	rogneLeRenduNatif(ctx, r, &b, opts)
 	if opts.RogneAuxComposantesAncrees {
 		n, gardees, total := r.GardeComposantesAncrees(opts.Ancres)
 		slog.InfoContext(ctx, "mapfond: composantes sans ancre effacees", "carte", b.Module,
 			"cellules", n, "composantes", fmt.Sprintf("%d/%d gardees", gardees, total))
 	}
 	JugeParLesAncres(r, &b, opts.Ancres)
-	if !opts.SansEau {
-		PoseEauDepuisModule(ctx, r, &b, opts.CheminModule)
-	}
+	finitRenduNatif(ctx, r, &b, opts)
 	slog.InfoContext(ctx, "carte cuite", "module", b.Module,
 		"instances", b.Dessinees, "decor", b.EcarteesDecor,
 		"ancres", fmt.Sprintf("%d/%d", b.AncresAvecSol, b.AncresDansLeCadre),
@@ -329,6 +325,28 @@ func CuitCarteNative(ctx context.Context, opts OptionsCuisson) (*Rendu, BilanCui
 		"substituees", b.CellulesSubstituees,
 		"px", r.NX*r.NY, "degradations", len(b.Degradations))
 	return r, b, nil
+}
+
+// rogneLeRenduNatif joue les effacements de forme de la chaine native, dans cet ordre : la
+// silhouette du plan est posee AVANT les zones nommees, qui ne doivent jamais effacer ce qu'elle
+// couvre ; la boite utile suit ; le rognage au maillage passe apres tous les autres effacements de
+// forme, son compteur est alors la matiere de l'image finale qu'il retire, et il precede l'elagage
+// des composantes, qui doit voir l'effacement definitif. Fonction a part pour que les tests
+// jouent cette sequence sans module.
+func rogneLeRenduNatif(ctx context.Context, r *Rendu, b *BilanCuisson, opts OptionsCuisson) {
+	appliqueNavmesh(ctx, r, b, opts.Navmesh, etapePlan)
+	mesureEtRogneZones(ctx, r, b, opts)
+	borneALaBoite(ctx, r, b, opts.BoiteUtile)
+	appliqueNavmesh(ctx, r, b, opts.Navmesh, etapeRognage)
+}
+
+// finitRenduNatif pose l'eau puis recoupe le rendu a la silhouette du plan, en tout dernier :
+// l'eau se pose apres le rognage et ne connait pas son masque.
+func finitRenduNatif(ctx context.Context, r *Rendu, b *BilanCuisson, opts OptionsCuisson) {
+	if !opts.SansEau {
+		PoseEauDepuisModule(ctx, r, b, opts.CheminModule)
+	}
+	appliqueNavmesh(ctx, r, b, opts.Navmesh, etapeFinale)
 }
 
 // CadreSurAncres prepare un rendu borne au voisinage des ancres, a l'echelle de production.
@@ -589,7 +607,7 @@ func mesureEtRogneZones(ctx context.Context, r *Rendu, b *BilanCuisson, opts Opt
 		"zones", len(opts.ZonesNommees), "matiere", matiere, "dehors", dehors,
 		"part", fmt.Sprintf("%.1f%%", 100*part), "rogne", opts.RogneAuxZones)
 	if opts.RogneAuxZones {
-		b.CellulesHorsZones = r.EffaceHorsZones(m)
+		r.rogneAuxZonesEtSilhouette(ctx, b, m)
 	}
 	if opts.CombleZonesEntieres {
 		// Masque NON DILATE : la dilatation d une zone n est pas du terrain joue, et c est elle

@@ -85,20 +85,21 @@ func TestSilhouetteBazaarMarge05(t *testing.T) {
 	if bornes := plan.Bounds(); bornes.Dx() != rSil.NX || bornes.Dy() != rSil.NY {
 		t.Errorf("plan de %d x %d, fond de %d x %d", bornes.Dx(), bornes.Dy(), rSil.NX, rSil.NY)
 	}
-	aplat, trait := 0, 0
+	face, trait := 0, 0
 	for py := 0; py < rSil.NY; py++ {
 		for px := 0; px < rSil.NX; px++ {
 			switch plan.RGBAAt(px, py) {
-			case teintePlanAplat:
-				aplat++
-			case teintePlanContour:
+			case teintePlanPapier:
+			case teinteAreteEncre, teinteAreteCachee:
 				trait++
+			default:
+				face++
 			}
 		}
 	}
-	t.Logf("plan de Bazaar sur le cadre du fond : %d pixels d'aplat, %d de trait", aplat, trait)
-	if aplat == 0 || trait == 0 {
-		t.Errorf("plan sans aplat (%d) ou sans trait (%d)", aplat, trait)
+	t.Logf("plan de Bazaar sur le cadre du fond : %d pixels de face, %d de trait", face, trait)
+	if face == 0 || trait == 0 {
+		t.Errorf("plan sans face (%d) ou sans trait (%d)", face, trait)
 	}
 }
 

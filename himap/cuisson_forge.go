@@ -301,12 +301,7 @@ func CuitCarteForge(ctx context.Context, opts OptionsCuissonForge) (*Rendu, Bila
 		slog.InfoContext(ctx, "mapfond: sol vu du dessous", "carte", opts.Cle, "pixels", n)
 	}
 	appliqueSubstitutionForge(ctx, r, &b, s, opts)
-	appliqueNavmesh(ctx, r, &b, opts.Navmesh, etapeRognage)
-	mesureEtRogneZonesForge(ctx, r, &b, opts)
-	combleTrousForge(ctx, r, &b, opts)
-	rogneAltitudesEtPositionsForge(ctx, r, opts)
-	cadreAuxAncresEtZonesForge(ctx, r, opts)
-	borneALaBoite(ctx, r, &b, boiteForge(ctx, opts))
+	finitRenduForge(ctx, r, &b, opts, ContoursDeZones(mapvar.ZonesNommeesForge(opts.Objets)))
 	if b.VolumesDeMort == 0 {
 		b.degrade(ctx, "aucun volume de mort reconnu — l'empreinte des types a peut-etre bouge")
 	}
@@ -318,6 +313,22 @@ func CuitCarteForge(ctx context.Context, opts OptionsCuissonForge) (*Rendu, Bila
 		"couverture", fmt.Sprintf("%.1f%%", 100*b.TauxCouverture), "couverte", b.CarteCouverte,
 		"ancres", fmt.Sprintf("%d/%d", b.AncresAvecSol, b.AncresDansLeCadre))
 	return r, b, nil
+}
+
+// finitRenduForge joue la fin de la chaine Forge sur un rendu peuple : rognage au maillage, zones
+// de callout (`zones`, leurs contours), comblements, rognages d'altitude et de positions, cadres,
+// bornage, puis l'etape finale qui recoupe le rendu a la silhouette du plan, apres tous les
+// calques peints. L'ordre est le contrat : la silhouette posee par le rognage doit exister quand
+// les zones effacent, et rien ne doit etre peint apres l'etape finale. Fonction a part pour que
+// les tests jouent cette sequence sans modele ni module.
+func finitRenduForge(ctx context.Context, r *Rendu, b *BilanCuisson, opts OptionsCuissonForge, zones [][][2]float64) {
+	appliqueNavmesh(ctx, r, b, opts.Navmesh, etapeRognage)
+	mesureEtRogneZonesForge(ctx, r, b, opts, zones)
+	combleTrousForge(ctx, r, b, opts)
+	rogneAltitudesEtPositionsForge(ctx, r, opts)
+	cadreAuxAncresEtZonesForge(ctx, r, opts)
+	borneALaBoite(ctx, r, b, boiteForge(ctx, opts))
+	appliqueNavmesh(ctx, r, b, opts.Navmesh, etapeFinale)
 }
 
 // armeTrancheDeJeuForge deduit le niveau de jeu des ancres, arme la tranche d'altitude du rendu
@@ -954,8 +965,7 @@ func journalisePixelsParType(ctx context.Context, r *Rendu, b BilanCuisson, obje
 // l efface que si la carte le demande. Jumeau exact de `mesureEtRogneZones` sur la chaine
 // native — meme masque, meme dilatation, meme journal — a ceci pres que les zones ne sont pas
 // fournies mais LUES DANS LES OBJETS deja charges.
-func mesureEtRogneZonesForge(ctx context.Context, r *Rendu, b *BilanCuisson, opts OptionsCuissonForge) {
-	zs := mapvar.ZonesNommeesForge(opts.Objets)
+func mesureEtRogneZonesForge(ctx context.Context, r *Rendu, b *BilanCuisson, opts OptionsCuissonForge, zs [][][2]float64) {
 	if len(zs) == 0 {
 		return
 	}
@@ -965,7 +975,7 @@ func mesureEtRogneZonesForge(ctx context.Context, r *Rendu, b *BilanCuisson, opt
 	} else if opts.MargeZones < 0 {
 		marge = 0
 	}
-	m := MasqueZones(r, ContoursDeZones(zs), marge)
+	m := MasqueZones(r, zs, marge)
 	matiere, dehors := r.MesureHorsZones(m)
 	b.MatiereHorsZones = dehors
 	part := 0.0
@@ -976,7 +986,7 @@ func mesureEtRogneZonesForge(ctx context.Context, r *Rendu, b *BilanCuisson, opt
 		"zones", len(zs), "matiere", matiere, "dehors", dehors,
 		"part", fmt.Sprintf("%.1f%%", 100*part), "rogne", opts.RogneAuxZones, "marge", marge)
 	if opts.RogneAuxZones {
-		b.CellulesHorsZones = r.EffaceHorsZones(m)
+		r.rogneAuxZonesEtSilhouette(ctx, b, m)
 	}
 }
 
