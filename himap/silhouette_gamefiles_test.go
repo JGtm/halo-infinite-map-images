@@ -89,7 +89,7 @@ func TestSilhouetteBazaarMarge05(t *testing.T) {
 	for py := 0; py < rSil.NY; py++ {
 		for px := 0; px < rSil.NX; px++ {
 			switch plan.RGBAAt(px, py) {
-			case teintePlanPapier:
+			case teintePlanVide:
 			case teinteAreteEncre, teinteAreteCachee:
 				trait++
 			default:

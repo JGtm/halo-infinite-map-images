@@ -150,7 +150,12 @@ A pixel is darkened (a drop shadow) when the pixel 0.7 m to the north-west (at l
 more than 1.2 m above its own: a step reads as a step. Border edges (seen by one kept face) are drawn
 in dark ink, 7 cm thick (at least 1 px); where a level more than 1.5 m higher covers an edge it is
 drawn as a grey dashed line instead (6 px drawn, 6 px skipped), a hidden edge. Holes of the mesh
-(rocks, pillars) have no face and stay light paper, with their edges drawn.
+(rocks, pillars) have no face and stay transparent, with their edges drawn.
+
+Output change in v1.3.1: what no kept face covers (the void outside the mesh and its holes) is now
+transparent (alpha 0, colour 0) where v1.3.0 painted an opaque light paper (`#F0F1EC`). Faces, shadows
+and edges are unchanged pixel for pixel and stay opaque; edges overwrite their pixel and never blend,
+so no partial alpha appears. The image is meant to be shown as is, in place of the textured background.
 
 `CalageFondDuRendu(r)` gives the frame of a `Rendu`, so the image has the dimensions and the
 calibration of the background, so that the two overlay exactly. Faces and edges are cut at the frame
