@@ -62,7 +62,7 @@ func TestCouvertureFinaleSansRognage(t *testing.T) {
 	}
 }
 
-// PlanPNG avec un masque qui ecarte une face : ses pixels restent du papier.
+// PlanPNG avec un masque qui ecarte une face : ses pixels restent transparents.
 // Mutation jouee : ignorer `garde` dans PlanPNG.
 func TestPlanPNGIgnoreLesFacesEcartees(t *testing.T) {
 	m := &hinavmesh.Maillage{}
@@ -76,21 +76,21 @@ func TestPlanPNGIgnoreLesFacesEcartees(t *testing.T) {
 		t.Errorf("face gardee : %v, attendu la teinte du milieu", got)
 	}
 	for _, p := range [][2]int{{7, 2}, {6, 1}, {8, 3}} { // dedans, au bord et sur le contour de la face ecartee
-		if got := img.RGBAAt(p[0], p[1]); got != teintePlanPapier {
-			t.Errorf("pixel %v de la face ecartee = %v, attendu le papier", p, got)
+		if got := img.RGBAAt(p[0], p[1]); got != teintePlanVide {
+			t.Errorf("pixel %v de la face ecartee = %v, attendu le vide transparent", p, got)
 		}
 	}
 }
 
 // Carre de 6 m (de 2 a 8 m) a 1 m/px dans un cadre de 10 x 10 : 25 pixels de face hors trait (le
-// bloc 3..7 x 3..7), 24 de trait (le cadre de 7 x 7 pixels de 2 a 8), 51 de papier.
+// bloc 3..7 x 3..7), 24 de trait (le cadre de 7 x 7 pixels de 2 a 8), 51 de vide.
 // Mutation jouee : aplat decale d'un pixel.
 func TestPlanPNGCompteExactSurUnCarre(t *testing.T) {
 	img, err := PlanPNG(carreMaillage(), nil, calageDix)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var aplat, trait, papier int
+	var aplat, trait, vide int
 	minX, minY, maxX, maxY := 99, 99, -1, -1
 	for py := 0; py < 10; py++ {
 		for px := 0; px < 10; px++ {
@@ -101,13 +101,13 @@ func TestPlanPNGCompteExactSurUnCarre(t *testing.T) {
 				minY, maxY = min(minY, py), max(maxY, py)
 			case teinteAreteEncre:
 				trait++
-			case teintePlanPapier:
-				papier++
+			case teintePlanVide:
+				vide++
 			}
 		}
 	}
-	if aplat != 25 || trait != 24 || papier != 51 {
-		t.Errorf("%d pixels d'aplat, %d de trait, %d de papier ; attendu 25, 24 et 51", aplat, trait, papier)
+	if aplat != 25 || trait != 24 || vide != 51 {
+		t.Errorf("%d pixels d'aplat, %d de trait, %d de vide ; attendu 25, 24 et 51", aplat, trait, vide)
 	}
 	if minX != 3 || maxX != 7 || minY != 3 || maxY != 7 {
 		t.Errorf("aplat de (%d, %d) a (%d, %d), attendu de (3, 3) a (7, 7)", minX, minY, maxX, maxY)

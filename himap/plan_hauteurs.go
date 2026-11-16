@@ -157,7 +157,7 @@ func assombritOmbre(c color.RGBA) color.RGBA {
 		uint8(float64(c.B) * facteurOmbreB), 255}
 }
 
-// peintLesFaces rend l'image : papier hors de toute face, teinte de l'altitude du dessus
+// peintLesFaces rend l'image : vide transparent hors de toute face, teinte de l'altitude du dessus
 // ailleurs, assombrie si un niveau nettement plus haut est au nord-ouest.
 func (p *planHauteurs) peintLesFaces() *image.RGBA {
 	cal := p.cal
@@ -175,7 +175,7 @@ func (p *planHauteurs) peintLesFaces() *image.RGBA {
 				z = p.top[y*cal.Largeur+x]
 			}
 			if math.IsInf(z, -1) {
-				img.SetRGBA(x, y, teintePlanPapier)
+				img.SetRGBA(x, y, teintePlanVide)
 				continue
 			}
 			t := 0.5

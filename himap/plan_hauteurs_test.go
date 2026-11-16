@@ -208,8 +208,8 @@ func TestPlanPNGIgnoreLesFacesAAltitudeNonFinie(t *testing.T) {
 			t.Errorf("z = %v : face normale = %v, attendu la teinte du milieu %v", mauvaise, got, teinteMilieu)
 		}
 		for _, p := range [][2]int{{7, 2}, {6, 3}, {8, 3}} {
-			if got := img.RGBAAt(p[0], p[1]); got != teintePlanPapier {
-				t.Errorf("z = %v : pixel %v de la face ecartee = %v, attendu le papier", mauvaise, p, got)
+			if got := img.RGBAAt(p[0], p[1]); got != teintePlanVide {
+				t.Errorf("z = %v : pixel %v de la face ecartee = %v, attendu le vide transparent", mauvaise, p, got)
 			}
 		}
 	}
