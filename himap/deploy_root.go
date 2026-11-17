@@ -22,11 +22,23 @@ import (
 // l'environnement, sans toucher au code.
 const DeployRootEnv = "LEVELUP_HALO_DEPLOY"
 
+// Chemin du jeu sous la racine d'une bibliotheque Steam ou d'un lecteur Xbox. SEUL endroit
+// du depot ou ce chemin est ecrit : les installations connues et les candidats de
+// CandidatsInstallation en sont tous composes.
+const (
+	dossierJeu      = "Halo Infinite"
+	sousCheminSteam = "steamapps/common/" + dossierJeu + "/deploy"
+	sousCheminXbox  = "XboxGames/" + dossierJeu + "/Content/deploy"
+)
+
+// variantesDeploy : les variantes de depot connues, sous la racine `deploy` (voir LevelsDir).
+var variantesDeploy = []string{"pc", "ds", "any"}
+
 // knownDeployRoots : installations connues, essayees dans cet ordre.
 var knownDeployRoots = []string{
-	`C:/Program Files (x86)/Steam/steamapps/common/Halo Infinite/deploy`,
-	`D:/SteamLibrary/steamapps/common/Halo Infinite/deploy`,
-	`C:/XboxGames/Halo Infinite/Content/deploy`,
+	`C:/Program Files (x86)/Steam/` + sousCheminSteam,
+	`D:/SteamLibrary/` + sousCheminSteam,
+	`C:/` + sousCheminXbox,
 }
 
 // ErrNoDeployRoot signale qu'aucune installation n'a ete trouvee. Les appelants hors ligne
@@ -62,7 +74,12 @@ func LevelsDir(variant string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(root, variant, "levels", "multi"), nil
+	return dossierCartes(root, variant), nil
+}
+
+// dossierCartes compose le dossier des cartes multijoueur d'une variante sous une racine.
+func dossierCartes(root, variant string) string {
+	return filepath.Join(root, variant, "levels", "multi")
 }
 
 // modulesGeneriques : jetons de nom de carte qui ne designent aucun dossier.
