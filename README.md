@@ -23,6 +23,13 @@ One package, `himap`, built on `github.com/JGtm/halo-infinite-files-reader`:
 - `NewModuleIndex`, `ReadModuleInstances`, `ReadModuleBSPBounds` and `ReadRuntimeGeoTag` are the
   lower-level readers the renderer is made of, exported for diagnostics.
 - `DeployRoot` finds a local installation (`LEVELUP_HALO_DEPLOY`, else the usual locations).
+- `CandidatsInstallation` lists the `deploy` folders the game may be in for a store
+  (`himap.BoutiqueSteam`: the Steam folder from the Windows registry plus every library of
+  `libraryfolders.vdf`; `himap.BoutiqueXbox`: `XboxGames` on each fixed drive). It validates
+  nothing and reads no environment variable; a read error comes back next to the candidates
+  found. Empty outside Windows.
+- `ValideDeploy` checks that a folder is a `deploy` root (`<folder>/<pc|ds|any>/levels/multi`
+  exists for at least one variant); the error wraps `ErrDeployInvalide` and says what is missing.
 
 ## What it is not
 
@@ -72,6 +79,23 @@ log.Printf("origin (%.1f, %.1f), %.4f m/px", x0, y0, mpp)
 ```
 
 The anchors above are placeholders; real ones come from your own map data.
+
+To offer the installations of the machine (`ExampleCandidatsInstallation` in the same file):
+
+```go
+for _, boutique := range []himap.Boutique{himap.BoutiqueSteam, himap.BoutiqueXbox} {
+	candidats, err := himap.CandidatsInstallation(boutique)
+	if err != nil {
+		log.Printf("%s: partial search: %v", boutique, err)
+	}
+	for _, c := range candidats {
+		if err := himap.ValideDeploy(c); err != nil {
+			continue // not installed here, or not a deploy folder
+		}
+		log.Printf("%s: Halo Infinite found in %s", boutique, c)
+	}
+}
+```
 
 ## Native maps and the navigation mesh
 

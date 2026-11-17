@@ -80,3 +80,22 @@ func ExampleChargeMaillageNatif() {
 		log.Fatal(err)
 	}
 }
+
+// Offer the user the installations of this machine. CandidatsInstallation lists where the game
+// may be for a store, validates nothing and reads no environment variable; ValideDeploy then
+// keeps the folders that really are a `deploy` root. A read error (registry, libraryfolders.vdf)
+// does not stop the search: it comes back next to the candidates found, for the caller to log.
+func ExampleCandidatsInstallation() {
+	for _, boutique := range []himap.Boutique{himap.BoutiqueSteam, himap.BoutiqueXbox} {
+		candidats, err := himap.CandidatsInstallation(boutique)
+		if err != nil {
+			log.Printf("%s: partial search: %v", boutique, err)
+		}
+		for _, c := range candidats {
+			if err := himap.ValideDeploy(c); err != nil {
+				continue // not installed here, or not a deploy folder
+			}
+			log.Printf("%s: Halo Infinite found in %s", boutique, c)
+		}
+	}
+}
