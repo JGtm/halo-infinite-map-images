@@ -147,12 +147,13 @@ type EtagesRelief struct {
 
 // TraitsRelief porte les polylignes du relief. Une polyligne est [x0, y0, dx1, dy1, ...] en
 // dixiemes de pixel entiers du cadre publie : le premier couple est absolu, les suivants sont
-// l'ecart au point precedent ; l'entier designe le CENTRE du pixel. Remplis par l'item des
-// traits (A.2) ; vides tant qu'il n'a pas tourne.
+// l'ecart au point precedent ; l'entier designe le CENTRE du pixel. Les polylignes d'une famille
+// sont triees par (y0, x0). Remplis par (*Relief).CalculeTraits ; vides tant qu'il n'a pas tourne.
 type TraitsRelief struct {
-	// Ruptures : sauts de hauteur entre deux pixels voisins.
+	// Ruptures : sauts de hauteur entre deux pixels voisins. Une chaine fermee se termine sur son
+	// premier point.
 	Ruptures [][]int `json:"steps"`
-	// Courbes : courbes de niveau sur les pentes.
+	// Courbes : courbes de niveau sur les pentes. Une chaine fermee se termine sur son premier point.
 	Courbes [][]int `json:"contours"`
 	// Liseres : anneaux fermes du bord de la zone, sans repeter le premier point.
 	Liseres [][]int `json:"outline"`

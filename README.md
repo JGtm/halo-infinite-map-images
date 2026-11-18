@@ -256,6 +256,18 @@ the metres the rest of the module says.
 polylines) are declared by the type but are filled by later computations of this package, not by
 `CalculeRelief`.
 
+`(*Relief).CalculeTraits(ctx)` then fills `DonneesRelief.Lines` from the quantized heights and the kept zone,
+in pixels of the published frame: steps where two neighbouring pixels differ by more than `SeuilRupture`
+(laid on the lattice between pixels, so that a closed step gives a closed loop and three steps meeting in a
+cell share one junction), contour lines every `EquidistanceCourbes` on the heights smoothed over 5 x 5 pixels
+where the slope reaches `PenteMinCourbe`, away from any step by more than `RayonSansCourbePresDUneRupture`
+pixels (near a step the smoothing mixes both sides and would line every wall with contours), and the outline of the kept zone as closed rings; chained by
+increasing node identifier (the output is the same to the byte from one run to the next), specks dropped
+(`LongueurMinRupture` per connected group of steps, `LongueurMinCourbe` per contour, `AireMinAnneau` per
+ring), simplified by Douglas-Peucker within `ToleranceTraits` pixels and written as tenths of a pixel, the
+first point absolute and the next ones as offsets. No line carries a height: a cut by floor filters them
+by its own mask, pixel by pixel.
+
 The principles of the relief (height per pixel, shading, contour lines, cut by floor) and the starting
 thresholds follow OpenSpartan Cartographer (Den, MIT license); the algorithm is written here, no code of
 the original is copied.
