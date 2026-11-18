@@ -260,11 +260,10 @@ heights in game units, lowest first (the consumer ranks and names them), found a
 histogram of floor heights and at least `EcartMinEtages` apart. A map without a mesh gets no floor and no
 storey.
 
-`DonneesRelief.Floors` (floors, mesh floors) and `DonneesRelief.Lines` (steps, contours and outline as
-polylines) are declared by the type but are filled by later computations of this package, not by
-`CalculeRelief`.
+`CalculeRelief` leaves `DonneesRelief.Floors` and `DonneesRelief.Lines` empty: `CalculeSols` and
+`CalculeTraits` fill them.
 
-`(*Relief).CalculeTraits(ctx)` then fills `DonneesRelief.Lines` from the quantized heights and the kept zone,
+`(*Relief).CalculeTraits(ctx)` fills `DonneesRelief.Lines` from the quantized heights and the kept zone,
 in pixels of the published frame: steps where two neighbouring pixels differ by more than `SeuilRupture`
 (laid on the lattice between pixels, so that a closed step gives a closed loop and three steps meeting in a
 cell share one junction), contour lines every `EquidistanceCourbes` on the heights smoothed over 5 x 5 pixels
