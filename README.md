@@ -108,6 +108,16 @@ runs without one. Check `BilanMaillage.Illisibles`: when it is not zero the deco
 largest *readable* candidate, which may be a secondary one if the real main resource could not
 be extracted (a warning is logged).
 
+`sgh_interlock` (Live Fire) keeps its geometry in the shared module `pc/globals/common-rtx-new.module`,
+and its mesh in the matching `any/globals/common-rtx-new.module`, next to the meshes of neighbouring
+arenas. `ChargeMaillageNatifGeometriePartagee(ctx, deploy, "sgh_interlock", geometryModule, anchors)` tries the
+map's own `any` module first (a map that carries a mesh gets exactly what `ChargeMaillageNatif` returns),
+then, when `geometryModule` lies under `pc/globals/`, picks in the shared module the mesh of the arena
+`ChoisitBSP` retains for the geometry: at least half of its vertices inside the arena box, then the most
+objective anchors inside its footprint, then the largest share of vertices in the arena, then the smallest
+footprint. The other readable meshes count in `BilanMaillage.Secondaires`; `ErrSansMaillage` means none
+falls in the arena.
+
 Both cooking chains take the mesh through one `OptionsNavmesh` (`OptionsCuisson.Navmesh` for
 native maps, `OptionsCuissonForge.Navmesh` for Forge maps, whose mesh comes from the variant's
 `navmesh.blob` via `hinavmesh.Decode`): the mesh replaces the anchor interpolation as the

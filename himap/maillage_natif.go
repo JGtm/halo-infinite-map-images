@@ -20,7 +20,8 @@ import (
 
 // ErrSansMaillage : la carte n'a pas de maillage de navigation dans son module `any`
 // (`sgh_interlock` et `academy_tutorial`). Ce n est pas un echec de cuisson : l appelant cuit
-// sans maillage et consigne la degradation.
+// sans maillage et consigne la degradation. `sgh_interlock` en porte pourtant un, dans le module
+// `any` partage de sa geometrie : `ChargeMaillageNatifGeometriePartagee` l y cherche.
 //
 // Elle ne dit rien des candidates illisibles : quand `BilanMaillage.Illisibles` est non nul, le
 // maillage rendu est le plus gros des ressources lisibles, qui peut etre un secondaire si la
