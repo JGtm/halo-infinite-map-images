@@ -465,17 +465,48 @@ func (r *Rendu) BordEau(i, j int) bool {
 // ModuleVariante rend le chemin du module d'une MEME carte dans une autre variante du depot.
 // Les trois variantes ne portent pas la meme chose (cf. LevelsDir) : la geometrie de rendu
 // vit en pc/, le tag sddt en any/ uniquement.
+//
+// Deux emplacements, selon ou vit le module :
+//   - une carte : `<variante>/levels/multi/<dossier>/<nom>` ;
+//   - un module PARTAGE (`pc/globals/<nom>`, ou vit la geometrie de Live Fire) :
+//     `<variante>/globals/<nom>`, sous la meme racine que le module donne. Le calcul ancien
+//     (`<variante>/levels/multi/globals/<nom>`) designait un dossier qui n'existe dans aucune
+//     installation, et la zone jouable comme l'eau de Live Fire etaient perdues en silence.
 func ModuleVariante(cheminModule, variante string) (string, error) {
-	dir, err := LevelsDir(variante)
-	if err != nil {
-		return "", err
-	}
+	p, partage := cheminVarianteGlobale(cheminModule, variante)
 	dossier := filepath.Base(filepath.Dir(cheminModule))
-	p := filepath.Join(dir, dossier, filepath.Base(cheminModule))
+	if !partage {
+		dir, err := LevelsDir(variante)
+		if err != nil {
+			return "", err
+		}
+		p = cheminVarianteCarte(dir, cheminModule)
+	}
 	if _, err := os.Stat(p); err != nil {
 		return "", fmt.Errorf("module %s/%s introuvable : %w", variante, dossier, err)
 	}
 	return p, nil
+}
+
+// variantesDepot : les dossiers de variante sous la racine `deploy`.
+var variantesDepot = map[string]bool{"pc": true, "any": true, "ds": true}
+
+// cheminVarianteGlobale rend le module partage `<racine>/<variante>/globals/<nom>` homonyme d'un
+// module `<racine>/<autre variante>/globals/<nom>`, et faux pour tout autre module (celui d'une
+// carte, un sous-dossier de globals comme `forge/`, un dossier `globals` qui n'est pas sous une
+// variante).
+func cheminVarianteGlobale(cheminModule, variante string) (string, bool) {
+	globals := filepath.Dir(cheminModule)
+	dossierVariante := filepath.Dir(globals)
+	if filepath.Base(globals) != "globals" || !variantesDepot[filepath.Base(dossierVariante)] {
+		return "", false
+	}
+	return filepath.Join(filepath.Dir(dossierVariante), variante, "globals", filepath.Base(cheminModule)), true
+}
+
+// cheminVarianteCarte compose le module d'une carte dans le dossier des cartes d'une variante.
+func cheminVarianteCarte(dirVariante, cheminModule string) string {
+	return filepath.Join(dirVariante, filepath.Base(filepath.Dir(cheminModule)), filepath.Base(cheminModule))
 }
 
 // CoquilleDepuisPlans rend la lecture CONCURRENTE (intersection des demi-espaces), calculee

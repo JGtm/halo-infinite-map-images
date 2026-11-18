@@ -488,8 +488,12 @@ func appliqueFrontiere(ctx context.Context, r *Rendu, b *BilanCuisson, opts Opti
 	b.FrontiereAppliquee = true
 }
 
-// frontiereDuModule lit le tag sddt de la variante `any` du module.
+// frontiereDuModule lit le tag sddt de la variante `any` du module. Un module partage n'est pas lu :
+// son sddt porte toutes ses arenes (sddt_partage.go).
 func frontiereDuModule(ctx context.Context, b *BilanCuisson, cheminModule string) (Sddt, bool) {
+	if sddtPartageIgnore(ctx, b, cheminModule, raisonFrontierePartagee) {
+		return Sddt{}, false
+	}
 	chemin, err := ModuleVariante(cheminModule, "any")
 	if err != nil {
 		b.degrade(ctx, "sddt : %v", err)
@@ -512,6 +516,9 @@ func frontiereDuModule(ctx context.Context, b *BilanCuisson, cheminModule string
 // L'eau est un HABILLAGE : elle est posee apres le terrain et ne le touche pas (le banc le
 // prouve — z-buffer et eclairement identiques a l'octet avant/apres).
 func PoseEauDepuisModule(ctx context.Context, r *Rendu, b *BilanCuisson, cheminModule string) {
+	if sddtPartageIgnore(ctx, b, cheminModule, raisonEauPartagee) {
+		return
+	}
 	chemin, err := ModuleVariante(cheminModule, "any")
 	if err != nil {
 		b.degrade(ctx, "eau : %v", err)

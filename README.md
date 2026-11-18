@@ -108,6 +108,16 @@ runs without one. Check `BilanMaillage.Illisibles`: when it is not zero the deco
 largest *readable* candidate, which may be a secondary one if the real main resource could not
 be extracted (a warning is logged).
 
+`sgh_interlock` (Live Fire) keeps its geometry in the shared module `pc/globals/common-rtx-new.module`,
+and its mesh in the matching `any/globals/common-rtx-new.module`, next to the meshes of neighbouring
+arenas. `ChargeMaillageNatifGeometriePartagee(ctx, deploy, "sgh_interlock", geometryModule, anchors)` tries the
+map's own `any` module first (a map that carries a mesh gets exactly what `ChargeMaillageNatif` returns),
+then, when `geometryModule` lies under `pc/globals/`, picks in the shared module the mesh of the arena
+`ChoisitBSP` retains for the geometry: at least half of its vertices inside the arena box, then the most
+objective anchors inside its footprint, then the largest share of vertices in the arena, then the smallest
+footprint. The other readable meshes count in `BilanMaillage.Secondaires`; `ErrSansMaillage` means none
+falls in the arena.
+
 Both cooking chains take the mesh through one `OptionsNavmesh` (`OptionsCuisson.Navmesh` for
 native maps, `OptionsCuissonForge.Navmesh` for Forge maps, whose mesh comes from the variant's
 `navmesh.blob` via `hinavmesh.Decode`): the mesh replaces the anchor interpolation as the
@@ -211,6 +221,63 @@ Breaking change from v1.0.x: `OptionsCuissonForge` lost `NavmeshReference`, `Rog
 variable `NiveauHautNavmesh` is gone. `PlanDesMurs` returns `(PlanMurs, error)` and takes the face mask.
 The default clipping margin went from 3 m to 0.5 m on both chains, and the component selection is now
 applied (the reference reads only the kept components).
+
+### Relief
+
+`CalculeRelief(ctx, rendu, maillage, garde, calage)` computes the relief of a cooked `Rendu` in the
+frame (`CalageFond`) of the background that is *published*, not the one of the cooking: a re-cooking can
+come out smaller, larger or shifted, and the published frame is the reference. It returns a `*Relief`:
+
+- `Image`, one pixel per pixel of the frame: `q = R + 256 G` is the height of the top, in steps of 1/256
+  game unit from `Donnees.Height.Z0` (the integer part, rounded down, of the lowest height); `B` holds two
+  flags (`DrapeauSurCarte`: the height is known and the pixel is in the kept zone; `DrapeauSolMaillage`:
+  the height comes from the navigation mesh, not from the geometry); `A` is 255 where the height is known
+  and 0 elsewhere (then `R`, `G` and `B` are 0), never anything in between, so that a 2D canvas, which
+  stores premultiplied pixels, gives back exactly what was written;
+- `Zone`, the kept zone as a mask: the kept faces of the mesh widened by `MargeNavmesh`, narrow passages
+  closed, enclosed hollows filled, specks (under `AireMinAnneau`) dropped; without a mesh, the extent of
+  the matter;
+- `Donnees`, the content of the `.relief.json` file (`DonneesRelief`): the frame the image was projected to
+  (a consumer compares it to the frame of the published background: if they differ the relief is stale),
+  the height range, the share of the zone whose height comes from the mesh, the degradations as codes;
+- `Bilan`, what the computation measured (counts, share, frame offset, matter lost outside the frame).
+
+The top of a pixel is the height of the cooked `Rendu` at the centre of the published pixel (nearest
+neighbour, never an average, which would invent a slope on both sides of a wall), completed by the highest
+mesh floor where the cooking has no matter at all (natural terrain filled flat in the background) or where
+that floor lies more than `ToleranceDessusSol` above the render: the top is never under a walkable floor.
+A scale different from the published frame's is refused (`ErrEchelleDifferente`: re-cook the background);
+a shifted or larger frame is not an error, its pixels outside the cooked grid have no height from the
+render and the `Bilan` counts them. A map without a mesh (`maillage` nil, or no kept face in the frame)
+gets `DegradationSansMaillage`. Heights and distances of the relief are game units, about 3 m each, not
+the metres the rest of the module says.
+
+`(*Relief).CalculeSols(ctx, maillage, garde)` fills `DonneesRelief.Floors` once `CalculeRelief` has run: the
+kept faces that touch the frame as indexed vertices (x, y, z at a hundredth of a unit, world frame) and
+triangles, the floors stacked per pixel (two floors closer than `FusionSols` count as one, a pixel keeps at
+most `CouchesPile`, past that `DegradationPileTronquee`), and the detected storeys: `Niveaux` holds their
+heights in game units, lowest first (the consumer ranks and names them), found as the peaks of the
+histogram of floor heights and at least `EcartMinEtages` apart. A map without a mesh gets no floor and no
+storey.
+
+`CalculeRelief` leaves `DonneesRelief.Floors` and `DonneesRelief.Lines` empty: `CalculeSols` and
+`CalculeTraits` fill them.
+
+`(*Relief).CalculeTraits(ctx)` fills `DonneesRelief.Lines` from the quantized heights and the kept zone,
+in pixels of the published frame: steps where two neighbouring pixels differ by more than `SeuilRupture`
+(laid on the lattice between pixels, so that a closed step gives a closed loop and three steps meeting in a
+cell share one junction), contour lines every `EquidistanceCourbes` on the heights smoothed over 5 x 5 pixels
+where the slope reaches `PenteMinCourbe`, away from any step by more than `RayonSansCourbePresDUneRupture`
+pixels (near a step the smoothing mixes both sides and would line every wall with contours), and the outline of the kept zone as closed rings; chained by
+increasing node identifier (the output is the same to the byte from one run to the next), specks dropped
+(`LongueurMinRupture` per connected group of steps, `LongueurMinCourbe` per contour, `AireMinAnneau` per
+ring), simplified by Douglas-Peucker within `ToleranceTraits` pixels and written as tenths of a pixel, the
+first point absolute and the next ones as offsets. No line carries a height: a cut by floor filters them
+by its own mask, pixel by pixel.
+
+The principles of the relief (height per pixel, shading, contour lines, cut by floor) and the starting
+thresholds follow OpenSpartan Cartographer (Den, MIT license); the algorithm is written here, no code of
+the original is copied.
 
 ## Requirements
 
