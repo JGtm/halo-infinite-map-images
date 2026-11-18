@@ -252,6 +252,14 @@ render and the `Bilan` counts them. A map without a mesh (`maillage` nil, or no 
 gets `DegradationSansMaillage`. Heights and distances of the relief are game units, about 3 m each, not
 the metres the rest of the module says.
 
+`(*Relief).CalculeSols(ctx, maillage, garde)` fills `DonneesRelief.Floors` once `CalculeRelief` has run: the
+kept faces that touch the frame as indexed vertices (x, y, z at a hundredth of a unit, world frame) and
+triangles, the floors stacked per pixel (two floors closer than `FusionSols` count as one, a pixel keeps at
+most `CouchesPile`, past that `DegradationPileTronquee`), and the detected storeys: `Niveaux` holds their
+heights in game units, lowest first (the consumer ranks and names them), found as the peaks of the
+histogram of floor heights and at least `EcartMinEtages` apart. A map without a mesh gets no floor and no
+storey.
+
 `DonneesRelief.Floors` (floors, mesh floors) and `DonneesRelief.Lines` (steps, contours and outline as
 polylines) are declared by the type but are filled by later computations of this package, not by
 `CalculeRelief`.
