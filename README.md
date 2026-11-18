@@ -222,6 +222,44 @@ variable `NiveauHautNavmesh` is gone. `PlanDesMurs` returns `(PlanMurs, error)` 
 The default clipping margin went from 3 m to 0.5 m on both chains, and the component selection is now
 applied (the reference reads only the kept components).
 
+### Relief
+
+`CalculeRelief(ctx, rendu, maillage, garde, calage)` computes the relief of a cooked `Rendu` in the
+frame (`CalageFond`) of the background that is *published*, not the one of the cooking: a re-cooking can
+come out smaller, larger or shifted, and the published frame is the reference. It returns a `*Relief`:
+
+- `Image`, one pixel per pixel of the frame: `q = R + 256 G` is the height of the top, in steps of 1/256
+  game unit from `Donnees.Height.Z0` (the integer part, rounded down, of the lowest height); `B` holds two
+  flags (`DrapeauSurCarte`: the height is known and the pixel is in the kept zone; `DrapeauSolMaillage`:
+  the height comes from the navigation mesh, not from the geometry); `A` is 255 where the height is known
+  and 0 elsewhere (then `R`, `G` and `B` are 0), never anything in between, so that a 2D canvas, which
+  stores premultiplied pixels, gives back exactly what was written;
+- `Zone`, the kept zone as a mask: the kept faces of the mesh widened by `MargeNavmesh`, narrow passages
+  closed, enclosed hollows filled, specks (under `AireMinAnneau`) dropped; without a mesh, the extent of
+  the matter;
+- `Donnees`, the content of the `.relief.json` file (`DonneesRelief`): the frame the image was projected to
+  (a consumer compares it to the frame of the published background: if they differ the relief is stale),
+  the height range, the share of the zone whose height comes from the mesh, the degradations as codes;
+- `Bilan`, what the computation measured (counts, share, frame offset, matter lost outside the frame).
+
+The top of a pixel is the height of the cooked `Rendu` at the centre of the published pixel (nearest
+neighbour, never an average, which would invent a slope on both sides of a wall), completed by the highest
+mesh floor where the cooking has no matter at all (natural terrain filled flat in the background) or where
+that floor lies more than `ToleranceDessusSol` above the render: the top is never under a walkable floor.
+A scale different from the published frame's is refused (`ErrEchelleDifferente`: re-cook the background);
+a shifted or larger frame is not an error, its pixels outside the cooked grid have no height from the
+render and the `Bilan` counts them. A map without a mesh (`maillage` nil, or no kept face in the frame)
+gets `DegradationSansMaillage`. Heights and distances of the relief are game units, about 3 m each, not
+the metres the rest of the module says.
+
+`DonneesRelief.Floors` (floors, mesh floors) and `DonneesRelief.Lines` (steps, contours and outline as
+polylines) are declared by the type but are filled by later computations of this package, not by
+`CalculeRelief`.
+
+The principles of the relief (height per pixel, shading, contour lines, cut by floor) and the starting
+thresholds follow OpenSpartan Cartographer (Den, MIT license); the algorithm is written here, no code of
+the original is copied.
+
 ## Requirements
 
 Go 1.26.11 (`go.mod`). cgo is required, transitively: `himodule` of `github.com/JGtm/halo-infinite-files-reader` links the C++

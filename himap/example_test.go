@@ -2,6 +2,7 @@ package himap_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"image/png"
 	"log"
@@ -97,5 +98,62 @@ func ExampleCandidatsInstallation() {
 			}
 			log.Printf("%s: Halo Infinite found in %s", boutique, c)
 		}
+	}
+}
+
+// Compute the relief of a cooked map in the frame of the background that is published: the height of
+// the top of every pixel on 16 bits, two flags, the kept zone, and the data of the `.relief.json` file.
+// The mesh (nil for a map that has none) and its kept faces come from the same call as the plan; the
+// frame is the one the background's sidecar records.
+func ExampleCalculeRelief() {
+	ctx := context.Background()
+	deploy := "/path/to/Halo Infinite/deploy" // your install's deploy folder, or let himap.DeployRoot discover it
+	// Objectives, world metres.
+	anchors := [][3]float64{{-22.8, 0.2, 3.1}, {22.6, 0.2, 3.1}, {0.0, -7.7, 2.3}}
+	maillage, _, err := himap.ChargeMaillageNatif(ctx, deploy, "ctf_bazaar")
+	if err != nil && !errors.Is(err, himap.ErrSansMaillage) {
+		log.Fatal(err)
+	}
+	r, _, err := himap.CuitCarteNative(ctx, himap.OptionsCuisson{
+		RacineDeploy: deploy,
+		CheminModule: deploy + "/pc/levels/multi/ctf_bazaar/ctf_bazaar-rtx-new.module",
+		Ancres:       anchors,
+		Echelle:      0.034,
+		Navmesh:      himap.OptionsNavmesh{Maillage: maillage, Rogne: true, Mode: himap.ModeSilhouette},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	// The faces that form the arena; the render's matter stands in for the published background's.
+	matiere := func(x, y float64) bool { return true }
+	garde := himap.ComposantesRetenues(maillage, anchors, matiere).Garde
+	// The frame of the published background, as its sidecar records it.
+	published := himap.CalageFond{OrigineX: -30.2, OrigineY: 16.4, MetresParPixel: 0.034, Largeur: 1500, Hauteur: 1100}
+
+	rel, err := himap.CalculeRelief(ctx, r, maillage, garde, published)
+	if errors.Is(err, himap.ErrEchelleDifferente) {
+		log.Fatal("the background was cooked at another scale: cook it again, do not force the relief")
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("%.1f %% of the zone takes its height from the mesh, %d pixels of the frame lie outside the cooked grid",
+		100*rel.Bilan.PartMaillage, rel.Bilan.HorsGrille)
+
+	// rel.Image is lossless-encoded (PNG or WebP) as is; rel.Donnees is the JSON.
+	out, err := os.Create("bazaar.relief.png")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer out.Close()
+	if err := png.Encode(out, rel.Image); err != nil {
+		log.Fatal(err)
+	}
+	data, err := json.Marshal(rel.Donnees)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := os.WriteFile("bazaar.relief.json", data, 0o644); err != nil {
+		log.Fatal(err)
 	}
 }
